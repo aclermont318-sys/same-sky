@@ -165,8 +165,19 @@ function boot() {
       // over the couple's world, so it asks "who's holding this?" instead of
       // making the second person set everything up from scratch again.
       showConnecting();
-      initSync().finally(() => {
+      initSync().finally(async () => {
+        // Someone arriving on an invite must never be dropped into "start a new
+        // family" just because the first connection was slow — that would look like
+        // their partner's world doesn't exist. Try again, then say so plainly.
+        if (coupleCode() && !store.get('profile', null)?.setupComplete) {
+          await new Promise(r => setTimeout(r, 1500));
+          await initSync();
+        }
         hideConnecting();
+        if (coupleCode() && !store.get('profile', null)?.setupComplete) {
+          showJoinFailed();
+          return;
+        }
         startFlow();
         initPhotoSync(() => { if (current === 'memories') rerender(); });
       });
@@ -191,6 +202,28 @@ function showConnecting() {
 function hideConnecting() {
   const root = document.getElementById('overlay-root');
   if (root.querySelector('.wizard-mark')) root.replaceChildren();
+}
+
+function showJoinFailed() {
+  const root = document.getElementById('overlay-root');
+  render(root, html`
+    <div class="firstrun">
+      <div class="firstrun-card">
+        <div class="wizard-mark">🌙</div>
+        <div class="firstrun-title">Couldn't reach your family</div>
+        <div class="firstrun-sub">the invite is fine — the connection wasn't.<br>Have another go in a moment.</div>
+        <div class="firstrun-choices" style="margin-top:18px">
+          <button class="btn" id="retry-join">try again</button>
+        </div>
+        <button class="linky" id="fresh-start">or start a new family on this device</button>
+      </div>
+    </div>`);
+  root.querySelector('#retry-join').addEventListener('click', () => location.reload());
+  root.querySelector('#fresh-start').addEventListener('click', () => {
+    if (!confirm('Start a brand-new family here instead of joining?')) return;
+    store.set('coupleCode', '');
+    location.reload();
+  });
 }
 
 boot();

@@ -18,7 +18,7 @@ import { html, render } from './dom.js';
 
 // Lets a browser tell you exactly which build it is running — stale caches on a
 // phone are otherwise indistinguishable from a code bug.
-export const BUILD = '2026-07-25T19:30Z';
+export const BUILD = '2026-07-25T19:45Z';
 window.SAME_SKY_BUILD = BUILD;
 
 const RENDERERS = {

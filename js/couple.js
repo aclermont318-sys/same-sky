@@ -30,15 +30,33 @@ export function inviteLink() {
   return `${base}#join=${coupleCode()}`;
 }
 
-/** If this page was opened from an invite, take the code and tidy the address bar
- *  so the secret isn't left sitting in the URL of a shared screen. */
+/** If this page was opened from an invite, take the code.
+ *
+ *  The hash deliberately STAYS in the address bar until the person has actually
+ *  joined. On iPhone, "Add to Home Screen" saves whatever URL is showing, and an
+ *  installed web app gets its own storage — so if the code were stripped first, the
+ *  icon on her home screen would open an empty app with no way back to the family. */
 export function consumeJoinLink() {
   const found = (location.hash || '').match(/[#&]join=([A-Za-z0-9_-]{8,})/);
   if (!found) return false;
   setCoupleCode(found[1]);
-  history.replaceState(null, '', `${location.pathname}${location.search}`);
   return true;
 }
+
+/** Called once someone is safely in: tidy the secret out of the address bar. */
+export function clearJoinHash() {
+  if (location.hash.includes('join=')) {
+    history.replaceState(null, '', `${location.pathname}${location.search}`);
+  }
+}
+
+/** Running from a home-screen icon rather than a browser tab? */
+export const isInstalled = () =>
+  window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+export const isIOS = () =>
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 /** Which partner slot is still free for someone to claim. */
 export function freeSlot(profile) {

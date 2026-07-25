@@ -6,7 +6,7 @@
 
 import { store, defaultProfile, deviceTimeZone } from './store.js';
 import { toast, todayISO, fmtDate, applyTitle } from './app.js';
-import { coupleCode, setCoupleCode, newCoupleCode, inviteLink, freeSlot } from './couple.js';
+import { coupleCode, setCoupleCode, newCoupleCode, inviteLink, freeSlot, clearJoinHash, isInstalled, isIOS } from './couple.js';
 import { html, render, clear } from './dom.js';
 
 export const ACCENTS = {
@@ -392,11 +392,23 @@ export function joinFamily(onDone) {
   applyAccent(draft.accent);
   applyTitle(draft.title);
 
+  // On an iPhone, a home-screen app has its own storage. If she sets up here in
+  // Safari and installs afterwards, the icon opens an empty app — so say this first.
+  const needsInstallFirst = isIOS() && !isInstalled();
+
   const root = shell(html`
     <div class="wizard-hero" style="padding-bottom:0">
       <div class="wizard-mark">💌</div>
       <h2 class="wizard-title">${p[other]?.name || 'Someone'} invited you</h2>
       <p class="wizard-hint">welcome to the family — now make yourself at home</p>
+      ${needsInstallFirst ? html`
+        <div class="wizard-summary" style="text-align:left;background:var(--sky-soft);color:#4A7396">
+          <div><strong>📱 On iPhone, do this first:</strong></div>
+          <div>1 · tap <strong>Share</strong> (the box with the arrow)</div>
+          <div>2 · tap <strong>Add to Home Screen</strong></div>
+          <div>3 · open <strong>${p.title || 'Same Sky'}</strong> from your home screen and finish there</div>
+          <div style="margin-top:6px">Otherwise the icon opens an empty app — iPhones keep them separate.</div>
+        </div>` : ''}
     </div>
   `, { index: 0, total: 2 });
 
@@ -412,12 +424,13 @@ export function joinFamily(onDone) {
         draft.activePartner = slot;
         draft.setupComplete = true;
         store.set('profile', JSON.parse(JSON.stringify(draft)));
+        clearJoinHash();          // safely in: the secret can leave the address bar
         clear(document.getElementById('overlay-root'));
         toast(`You're in, ${draft[slot].name} 💕`);
         onDone();
       },
     });
-  }, 1600);
+  }, needsInstallFirst ? 6000 : 1600);   // leave time to read the install steps
   return root;
 }
 
@@ -443,6 +456,7 @@ export function askWhoIsHere(onDone) {
     const prof = store.get('profile', null);
     prof.activePartner = btn.dataset.pick;
     store.set('profile', prof);
+    clearJoinHash();
     clear(root);
     toast(`Hi ${prof[btn.dataset.pick].name} 💕`);
     onDone();

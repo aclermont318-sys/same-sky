@@ -1,0 +1,9 @@
+# Same Sky — Supabase project settings.
+# Only needed if you use the CLI (`supabase config push`). The dashboard path in
+# docs/SETUP-SYNC.md sets the same thing with a toggle.
+
+project_id = "same-sky"
+
+[auth]
+# Each phone identifies itself without either of you creating a login.
+enable_anonymous_sign_ins = true

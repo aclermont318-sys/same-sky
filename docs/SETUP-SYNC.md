@@ -67,7 +67,17 @@ Sidebar → **Project Settings** → **API**. You need:
 - **Project URL** — looks like `https://abcdefgh.supabase.co`
 - **anon public** key — a very long string starting `eyJ...`
 
-Open `js/config.js` in the app folder and fill in all three values:
+**The easy way — let the script do it.** In the app folder run:
+
+```
+powershell -ExecutionPolicy Bypass -File tools\finish-sync-setup.ps1
+```
+
+It asks for those two values, invents a strong couple code for you, checks the
+database really answers, writes `js/config.js`, and prints the code to send your
+partner. (The values only go into your own terminal.) If it works, skip to Step 3.
+
+**Or by hand** — open `js/config.js` and fill in all three values:
 
 ```js
 export const SUPABASE_URL = 'https://abcdefgh.supabase.co';

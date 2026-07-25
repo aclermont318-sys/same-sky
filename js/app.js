@@ -52,9 +52,12 @@ export function fmtDate(iso) {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-export function todayISO() {
-  const d = new Date();
+export function localISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function todayISO() {
+  return localISO(new Date());
 }
 
 export function daysBetween(isoA, isoB) {

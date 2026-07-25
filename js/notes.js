@@ -2,7 +2,7 @@
 
 import { store } from './store.js';
 import { getProfile } from './settings.js';
-import { toast, uid, fmtDate, todayISO, rotFor } from './app.js';
+import { toast, uid, fmtDate, todayISO, localISO, rotFor } from './app.js';
 import { html, render, clear } from './dom.js';
 
 const COLORS = { butter: '#FFF3C4', blush: '#FFE0E5', mint: '#DFF2E1', sky: '#E3ECFA' };
@@ -35,7 +35,7 @@ export function renderNotes() {
         <div class="sticky ${n.pinned ? 'pinned' : ''}" style="background:${COLORS[n.color] || COLORS.butter};--rot:${rotFor(n.id)}deg">
           ${n.text}
           <div class="sticky-foot">
-            <span class="who">${p[n.author]?.emoji || '💌'} ${p[n.author]?.name || '?'} · ${fmtDate(new Date(n.createdAt).toISOString().slice(0, 10))}</span>
+            <span class="who">${p[n.author]?.emoji || '💌'} ${p[n.author]?.name || '?'} · ${fmtDate(localISO(new Date(n.createdAt)))}</span>
             <button class="sticky-btn" data-pin="${n.id}" title="pin">📌</button>
             <button class="sticky-btn" data-del="${n.id}" title="delete">🗑</button>
           </div>
@@ -107,7 +107,7 @@ function letterCard(L, p) {
         <span>${p[L.author]?.emoji || '💌'} ${p[L.author]?.name || '?'}</span>
         ${sealed && L.openAt ? html`<span class="chip sky">🔒 opens ${fmtDate(L.openAt)}</span>` :
           sealed ? html`<span class="chip">sealed 💋</span>` :
-          html`<span class="chip">opened ${fmtDate(new Date(L.openedAt).toISOString().slice(0, 10))}</span>`}
+          html`<span class="chip">opened ${fmtDate(localISO(new Date(L.openedAt)))}</span>`}
       </div>
     </div>`;
 }

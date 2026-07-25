@@ -2,7 +2,7 @@
 
 import { store, photoStore } from './store.js';
 import { getProfile } from './settings.js';
-import { toast, uid, fmtDate, todayISO, daysBetween } from './app.js';
+import { toast, uid, fmtDate, todayISO, localISO, daysBetween } from './app.js';
 import { html, render } from './dom.js';
 import { distanceKm } from './map.js';
 
@@ -57,12 +57,12 @@ function autoMilestones(startDate) {
   const start = new Date(startDate + 'T00:00:00');
   const out = [];
   for (const d of [100, 200, 365, 500, 730, 1000]) {
-    const dt = new Date(start.getTime() + d * 864e5);
-    out.push({ label: d === 365 ? '1 year' : d === 730 ? '2 years' : `${d} days`, date: dt.toISOString().slice(0, 10), auto: true });
+    const dt = new Date(start); dt.setDate(start.getDate() + d);
+    out.push({ label: d === 365 ? '1 year' : d === 730 ? '2 years' : `${d} days`, date: localISO(dt), auto: true });
   }
   for (let y = 3; y <= 5; y++) {
     const dt = new Date(start); dt.setFullYear(start.getFullYear() + y);
-    out.push({ label: `${y} years`, date: dt.toISOString().slice(0, 10), auto: true });
+    out.push({ label: `${y} years`, date: localISO(dt), auto: true });
   }
   return out;
 }

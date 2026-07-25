@@ -1,8 +1,9 @@
 // Same Sky — settings view + first-run partner picker.
 
-import { store, defaultProfile, photosAvailable } from './store.js';
-import { toast } from './app.js';
-import { html, render, clear } from './dom.js';
+import { store, defaultProfile, photosAvailable, wipeAll } from './store.js';
+import { toast, applyTitle } from './app.js';
+import { ACCENTS, applyAccent } from './setup.js';
+import { html, render } from './dom.js';
 
 function zones() {
   try { return Intl.supportedValuesOf('timeZone'); }
@@ -20,32 +21,6 @@ export function getProfile() {
   const fresh = defaultProfile();
   store.set('profile', fresh);
   return fresh;
-}
-
-export function maybeFirstRun(onDone) {
-  const p = getProfile();
-  if (p.activePartner) return;
-  const root = document.getElementById('overlay-root');
-  render(root, html`
-    <div class="firstrun">
-      <div class="firstrun-card">
-        <div class="firstrun-title">Same Sky 💌</div>
-        <div class="firstrun-sub">one little app, two hearts.<br>Who's holding this device?</div>
-        <div class="firstrun-choices">
-          <button class="firstrun-choice" data-pick="a"><span class="big">${p.a.emoji}</span>${p.a.name}</button>
-          <button class="firstrun-choice" data-pick="b"><span class="big">${p.b.emoji}</span>${p.b.name}</button>
-        </div>
-        <p class="firstrun-sub" style="margin-top:18px">you can rename both of you in Settings ⚙️</p>
-      </div>
-    </div>`);
-  root.querySelectorAll('[data-pick]').forEach(btn => btn.addEventListener('click', () => {
-    const prof = getProfile();
-    prof.activePartner = btn.dataset.pick;
-    store.set('profile', prof);
-    clear(root);
-    toast(`Welcome, ${prof[btn.dataset.pick].name} 💕`);
-    onDone();
-  }));
 }
 
 async function geocode(city) {
@@ -78,7 +53,10 @@ function partnerFields(p, slot) {
           ${zones().map(z => html`<option value="${z}" ${z === q.tz ? 'selected' : ''}>${z.replace(/_/g, ' ')}</option>`)}
         </select>
       </div>
-      <div class="loc-caption" style="text-align:left">lat ${q.lat.toFixed(3)} · lng ${q.lng.toFixed(3)} ${q.lastLocAt ? '· live location saved' : '· from city'}</div>
+      <div class="loc-caption" style="text-align:left">
+        ${q.lat == null ? 'no location yet — type a city and press find'
+          : html`lat ${q.lat.toFixed(3)} · lng ${q.lng.toFixed(3)} ${q.lastLocAt ? '· live location saved' : '· from city'}`}
+      </div>
     </div>`;
 }
 
@@ -96,8 +74,17 @@ export function renderSettings() {
             <option value="b" ${p.activePartner === 'b' ? 'selected' : ''}>${p.b.emoji} ${p.b.name}</option>
           </select>
         </div>
-        <div class="field"><label>Together since 💞</label><input type="date" data-f="startDate" value="${p.startDate}"></div>
+        <div class="field"><label>Together since 💞</label><input type="date" data-f="startDate" value="${p.startDate || ''}"></div>
         <div class="field"><label>Next visit ✈️</label><input type="date" data-f="nextVisit" value="${p.nextVisit || ''}"></div>
+      </div>
+      <div class="field" style="margin-top:8px">
+        <label>Colour</label>
+        <div class="accent-row">
+          ${Object.entries(ACCENTS).map(([key, a]) => html`
+            <button class="accent ${key === (p.accent || 'rose') ? 'selected' : ''}" data-accent="${key}">
+              <span class="accent-dot" style="background:${a.dot}"></span>${a.label}
+            </button>`)}
+        </div>
       </div>
     </div>
     <div class="duo-grid">
@@ -112,8 +99,28 @@ export function renderSettings() {
         <label class="btn-ghost" style="cursor:pointer">📂 Import backup<input type="file" id="inp-import" accept=".json,application/json" style="display:none"></label>
       </div>
     </div>
+    <div class="card">
+      <h2 class="card-title">Start fresh <span class="hint">handing this to someone new?</span></h2>
+      <p class="danger-note">Erases everything on this device — notes, letters, photos, both profiles — and runs the setup again from scratch. Export a backup first if you want to keep any of it.</p>
+      <div class="settings-actions"><button class="btn-ghost" id="btn-reset">🧹 Erase and set up again</button></div>
+    </div>
     <div style="text-align:center"><button class="btn" id="btn-save" style="min-width:220px">Save settings 💾</button></div>
   `);
+
+  el.querySelectorAll('[data-accent]').forEach(b => b.addEventListener('click', () => {
+    const prof = getProfile();
+    prof.accent = b.dataset.accent;
+    store.set('profile', prof);
+    applyAccent(prof.accent);
+    el.querySelectorAll('[data-accent]').forEach(x => x.classList.toggle('selected', x === b));
+  }));
+
+  el.querySelector('#btn-reset').addEventListener('click', async () => {
+    if (!confirm('Erase everything on this device and start the setup again?\n\nNotes, letters, photos and both profiles will be gone.')) return;
+    if (!confirm('Really sure? This cannot be undone.')) return;
+    await wipeAll();
+    location.reload();
+  });
 
   el.querySelectorAll('[data-geo]').forEach(btn => btn.addEventListener('click', async () => {
     const slot = btn.dataset.geo;
@@ -142,7 +149,7 @@ export function renderSettings() {
       else prof[path[0]][path[1]] = v;
     });
     store.set('profile', prof);
-    document.querySelector('.wordmark-title').textContent = prof.title || 'Same Sky';
+    applyTitle(prof.title);
     toast('Saved 💾💕');
     renderSettings();
   });

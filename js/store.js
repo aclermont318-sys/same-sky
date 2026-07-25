@@ -6,14 +6,24 @@ import { uid } from './app.js';
 
 const PREFIX = 'samesky:';
 
+// A blank slate. Nothing here is a stand-in for real data — every field the couple
+// cares about is filled in by the setup wizard on first run (js/setup.js), so a fresh
+// install never shows someone else's names, cities or dates.
+export function deviceTimeZone() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; }
+  catch { return ''; }
+}
+
 export function defaultProfile() {
   return {
-    a: { name: 'Me', emoji: '🐻', city: 'Zürich', tz: 'Europe/Zurich', lat: 47.3769, lng: 8.5417, lastLocAt: null },
-    b: { name: 'You', emoji: '🐰', city: 'New York', tz: 'America/New_York', lat: 40.7128, lng: -74.006, lastLocAt: null },
-    startDate: '2025-11-20',
+    a: { name: '', emoji: '🐻', city: '', tz: deviceTimeZone(), lat: null, lng: null, lastLocAt: null },
+    b: { name: '', emoji: '🐰', city: '', tz: '', lat: null, lng: null, lastLocAt: null },
+    startDate: null,
     nextVisit: null,
     title: 'Same Sky',
+    accent: 'rose',
     activePartner: null,
+    setupComplete: false,
   };
 }
 
@@ -48,6 +58,13 @@ export const store = {
       throw new Error('invalid backup');
     }
     for (const [k, v] of Object.entries(obj.data)) store.set(k, v);
+    // The backup came from the other person's device, so this one must say who is
+    // holding it before anything gets filed under the wrong name.
+    const p = store.get('profile', null);
+    if (p) {
+      p.activePartner = null;
+      store.set('profile', p);
+    }
     if (photosAvailable && Array.isArray(obj.photos)) {
       for (const p of obj.photos) {
         const blob = await (await fetch(p.b64)).blob();
@@ -88,6 +105,18 @@ function idbOp(mode, fn) {
 }
 
 const idbPut = rec => idbOp('readwrite', os => os.put(rec));
+
+/** Wipe everything — used by "start fresh" in Settings. */
+export async function wipeAll() {
+  for (const k of Object.keys(localStorage)) {
+    if (k.startsWith(PREFIX)) localStorage.removeItem(k);
+  }
+  if (photosAvailable) {
+    try {
+      for (const p of await photoStore.all()) await photoStore.remove(p.id);
+    } catch { /* nothing to clear */ }
+  }
+}
 
 export const photoStore = {
   async add({ blob, caption = '', date }) {

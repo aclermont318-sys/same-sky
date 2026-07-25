@@ -41,6 +41,42 @@ def alert(msg):
     ctypes.windll.user32.MessageBoxW(None, msg, "Same Sky", 0x10)
 
 
+def focus_existing_window():
+    """If the app is already open, bring that window forward instead of stacking
+    another copy on top of it. App windows carry the 💌 in their title; a normal
+    browser tab showing the app would end in ' - Google Chrome', so it is skipped."""
+    user32 = ctypes.windll.user32
+    found = []
+
+    CB = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+
+    def visit(hwnd, _):
+        if not user32.IsWindowVisible(hwnd):
+            return True
+        cls = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(hwnd, cls, 256)
+        if cls.value != "Chrome_WidgetWin_1":
+            return True
+        buf = ctypes.create_unicode_buffer(512)
+        user32.GetWindowTextW(hwnd, buf, 512)
+        title = buf.value
+        if "💌" in title and not title.endswith(" - Google Chrome"):
+            found.append(hwnd)
+            return False
+        return True
+
+    try:
+        user32.EnumWindows(CB(visit), None)
+    except OSError:
+        return False
+    if not found:
+        return False
+    hwnd = found[0]
+    user32.ShowWindow(hwnd, 9)          # SW_RESTORE, in case it was minimised
+    user32.SetForegroundWindow(hwnd)
+    return True
+
+
 def same_sky_at(host, timeout=0.7):
     """True if OUR app answers there — not just anything holding the port."""
     try:
@@ -106,6 +142,8 @@ def open_app(url):
 
 
 def main():
+    if focus_existing_window():
+        return 0
     if not running() and not start_server():
         # start_server() shows its own message for a port conflict; this covers the rest.
         if not running():

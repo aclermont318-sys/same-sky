@@ -33,6 +33,17 @@
       var(--accent) 0 14px, var(--card) 14px 28px, var(--sky) 28px 42px, var(--card) 42px 56px);
 }
 
+/* accent themes — chosen during setup, changeable in Settings */
+:root[data-accent="lavender"] {
+  --accent: #9B7EDE; --accent-deep: #7355B8; --accent-soft: #EBE3FA; --blushnote: #EDE4FF;
+}
+:root[data-accent="ocean"] {
+  --accent: #3E8EA8; --accent-deep: #2C6C82; --accent-soft: #DCEEF4; --sky: #6FB2C9; --blushnote: #DDF0F6;
+}
+:root[data-accent="sunset"] {
+  --accent: #E8804F; --accent-deep: #C25E30; --accent-soft: #FBE3D6; --gold: #E5A93C; --blushnote: #FFE6D6;
+}
+
 * { box-sizing: border-box; }
 
 html { -webkit-text-size-adjust: 100%; }

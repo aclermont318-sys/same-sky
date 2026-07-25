@@ -34,10 +34,15 @@ const MOODS = ['🥰', '😊', '🥺', '😴', '😤', '🤒'];
 
 function clockBits(tz) {
   const now = new Date();
-  const time = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
-  const hr = +new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: 'numeric', hour12: false }).format(now);
-  const wd = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'long' }).format(now);
-  return { time, icon: hr >= 6 && hr < 18 ? '☀️' : '🌙', weekday: wd };
+  try {
+    const time = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(now);
+    const hr = +new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: 'numeric', hour12: false }).format(now);
+    const wd = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'long' }).format(now);
+    return { time, icon: hr >= 6 && hr < 18 ? '☀️' : '🌙', weekday: wd };
+  } catch {
+    // no city set for this person yet — Settings can fill it in
+    return { time: '--:--', icon: '', weekday: 'add a city' };
+  }
 }
 
 function greetingFor(name) {
@@ -124,6 +129,7 @@ export function renderHome() {
   const tick = () => {
     const view = document.getElementById('view-home');
     if (!view.classList.contains('active')) { clearInterval(timer); timer = null; return; }
+    if (!p.startDate) return;   // nothing to count until the date is set in Settings
     const ms = Date.now() - new Date(p.startDate + 'T00:00:00').getTime();
     const abs = Math.abs(ms);
     const vals = {
@@ -152,6 +158,11 @@ export function renderHome() {
 
   // ——— weather chips ———
   for (const slot of [me, you]) {
+    const span0 = el.querySelector(`[data-weather="${slot}"]`);
+    if (p[slot].lat == null || p[slot].lng == null) {
+      if (span0) span0.textContent = 'no city yet';
+      continue;
+    }
     weatherFor(p[slot].lat, p[slot].lng)
       .then(w => {
         const span = el.querySelector(`[data-weather="${slot}"]`);

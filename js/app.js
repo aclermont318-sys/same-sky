@@ -6,7 +6,8 @@ import { renderMap, teardownMap } from './map.js';
 import { renderMemories } from './memories.js';
 import { renderNotes } from './notes.js';
 import { renderUs } from './us.js';
-import { renderSettings, maybeFirstRun } from './settings.js';
+import { renderSettings } from './settings.js';
+import { runSetup, askWhoIsHere, applyAccent } from './setup.js';
 import { store } from './store.js';
 
 const RENDERERS = {
@@ -31,6 +32,13 @@ export function showView(name) {
 }
 
 export function rerender() { RENDERERS[current](); }
+
+/** Keep the wordmark and the window/tab title in step with a renamed app. */
+export function applyTitle(title) {
+  const name = title || 'Same Sky';
+  document.querySelector('.wordmark-title').textContent = name;
+  document.title = `${name} 💌`;
+}
 
 export function toast(msg) {
   const root = document.getElementById('toast-root');
@@ -96,11 +104,17 @@ function watchOtherWindows() {
 
 function boot() {
   const p = store.get('profile', null);
-  document.querySelector('.wordmark-title').textContent = p?.title || 'Same Sky';
+  applyTitle(p?.title);
+  applyAccent(p?.accent);
   document.querySelectorAll('[data-nav]').forEach(b =>
     b.addEventListener('click', () => showView(b.dataset.nav)));
   watchOtherWindows();
-  maybeFirstRun(() => showView('home'));
+
+  if (!p?.setupComplete) {
+    runSetup(() => showView('home'));       // brand-new install: ask for everything
+  } else if (!p.activePartner) {
+    askWhoIsHere(() => showView('home'));   // restored backup: just ask who's here
+  }
   showView('home');
 }
 

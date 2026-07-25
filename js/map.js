@@ -2,7 +2,7 @@
 
 import { store } from './store.js';
 import { getProfile } from './settings.js';
-import { toast, relTime } from './app.js';
+import { toast, relTime, showView } from './app.js';
 import { html, render, escapeHTML } from './dom.js';
 
 let map = null;
@@ -11,7 +11,12 @@ export function teardownMap() {
   if (map) { map.remove(); map = null; }
 }
 
+export function hasCoords(q) {
+  return q && q.lat != null && q.lng != null;
+}
+
 export function distanceKm(a, b) {
+  if (!hasCoords(a) || !hasCoords(b)) return null;
   const R = 6371, toRad = x => x * Math.PI / 180;
   const s = Math.sin(toRad(b.lat - a.lat) / 2) ** 2 +
     Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(toRad(b.lng - a.lng) / 2) ** 2;
@@ -32,7 +37,19 @@ export function renderMap() {
   const me = p.activePartner || 'a';
   const you = me === 'a' ? 'b' : 'a';
   const el = document.getElementById('view-map');
-  const km = Math.round(distanceKm(p.a, p.b));
+  const dist = distanceKm(p.a, p.b);
+
+  if (dist === null) {
+    render(el, html`
+      <div class="card empty">
+        <span class="empty-emoji">🗺️</span>
+        add both your cities in Settings and your hearts will show up here
+        <div style="margin-top:16px"><button class="btn" id="to-settings">open Settings ⚙️</button></div>
+      </div>`);
+    el.querySelector('#to-settings').addEventListener('click', () => showView('settings'));
+    return;
+  }
+  const km = Math.round(dist);
 
   render(el, html`
     <div class="card airmail-top distance-banner">

@@ -209,6 +209,78 @@
 .firstrun-choice:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); border-color: var(--accent); }
 .firstrun-choice .big { font-size: 44px; }
 
+/* ===== SETUP WIZARD ===== */
+.firstrun { overflow-y: auto; align-items: flex-start; padding-top: 6vh; }
+.wizard {
+  width: min(94vw, 520px); background: var(--card); border-radius: var(--radius);
+  box-shadow: var(--shadow-lift); border: var(--line); padding: var(--sp-4) var(--sp-3) var(--sp-3);
+  position: relative; overflow: hidden; animation: riseIn .4s cubic-bezier(.22,.9,.35,1) both;
+}
+.wizard::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 5px; background: var(--airmail); opacity: .85;
+}
+.wizard-dots { display: flex; gap: 7px; justify-content: center; margin-bottom: var(--sp-3); }
+.wizard-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); transition: all .25s ease; }
+.wizard-dots span.done { background: var(--accent-soft); }
+.wizard-dots span.on { background: var(--accent); width: 22px; border-radius: 999px; }
+
+.wizard-hero { text-align: center; padding: var(--sp-2) 0 var(--sp-1); }
+.wizard-mark { font-size: 54px; line-height: 1; margin-bottom: 6px; animation: swayIn 3.5s ease-in-out infinite; }
+@keyframes swayIn { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+.wizard-title { font-family: var(--font-display); font-style: italic; font-size: 30px; color: var(--accent-deep); text-align: center; }
+.wizard-hint { font-family: var(--font-hand); font-size: 18px; color: var(--muted); text-align: center; margin: 2px 0 var(--sp-3); }
+.wizard-fine { font-size: 12.5px; color: var(--muted); text-align: center; margin: 8px 0 0; }
+.wizard-actions { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-top: var(--sp-3); }
+.wizard-actions .btn { min-width: 130px; }
+
+.linky {
+  display: block; margin: 12px auto 0; border: 0; background: none; cursor: pointer;
+  font-family: var(--font-body); font-size: 13px; font-weight: 700; color: var(--muted);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.linky:hover { color: var(--accent-deep); }
+
+.avatar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.avatar {
+  aspect-ratio: 1; border: 2px solid transparent; border-radius: 12px; background: #fff;
+  font-size: 21px; cursor: pointer; box-shadow: var(--shadow); transition: all .15s ease;
+}
+.avatar:hover { transform: translateY(-2px) scale(1.06); }
+.avatar.selected { border-color: var(--accent); background: var(--accent-soft); }
+
+.city-row { display: flex; gap: 8px; }
+.city-row input { flex: 1; min-width: 0; }
+.city-hit {
+  display: block; width: 100%; text-align: left; margin-top: 6px; cursor: pointer;
+  border: var(--line); background: #fff; border-radius: var(--radius-sm); padding: 9px 12px;
+  font-family: var(--font-body); font-size: 14px; font-weight: 700; color: var(--ink); transition: all .12s ease;
+}
+.city-hit:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-deep); }
+
+.accent-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.accent {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  border: 2px solid transparent; background: #fff; box-shadow: var(--shadow);
+  border-radius: 999px; padding: 7px 14px 7px 8px;
+  font-family: var(--font-body); font-size: 13px; font-weight: 800; color: var(--ink); transition: all .15s ease;
+}
+.accent:hover { transform: translateY(-2px); }
+.accent.selected { border-color: var(--ink); }
+.accent-dot { width: 16px; height: 16px; border-radius: 50%; }
+
+.wizard-summary {
+  background: var(--accent-soft); border-radius: var(--radius-sm); padding: 14px 16px;
+  margin-top: var(--sp-2); font-size: 14.5px; font-weight: 700; color: var(--accent-deep);
+  display: grid; gap: 5px;
+}
+.wizard-summary span { margin-right: 4px; }
+.opt { font-weight: 700; color: var(--faint); text-transform: none; letter-spacing: 0; }
+
+@media (max-width: 420px) {
+  .avatar-grid { grid-template-columns: repeat(5, 1fr); }
+  .wizard { padding: var(--sp-3) var(--sp-2) var(--sp-2); }
+}
+
 /* empty states */
 .empty {
   text-align: center; color: var(--muted); padding: var(--sp-4);

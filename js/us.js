@@ -54,6 +54,7 @@ export function questionOfToday() {
 }
 
 function autoMilestones(startDate) {
+  if (!startDate) return [];
   const start = new Date(startDate + 'T00:00:00');
   const out = [];
   for (const d of [100, 200, 365, 500, 730, 1000]) {
@@ -78,8 +79,9 @@ export function renderUs() {
   const todaysA = answers[today] || {};
   const el = document.getElementById('view-us');
 
-  const days = Math.max(0, daysBetween(p.startDate, today));
-  const km = Math.round(distanceKm(p.a, p.b));
+  const days = p.startDate ? Math.max(0, daysBetween(p.startDate, today)) : 0;
+  const dist = distanceKm(p.a, p.b);
+  const km = dist === null ? null : Math.round(dist);
 
   const miles = [...autoMilestones(p.startDate), ...custom.map(m => ({ ...m, auto: false }))]
     .sort((x, y) => x.date.localeCompare(y.date));
@@ -88,7 +90,7 @@ export function renderUs() {
   render(el, html`
     <div class="stats-grid">
       <div class="stat-tile"><div class="stat-num">${days.toLocaleString('en')}</div><div class="stat-label">days together</div></div>
-      <div class="stat-tile"><div class="stat-num">${km.toLocaleString('en')}</div><div class="stat-label">km apart</div></div>
+      <div class="stat-tile"><div class="stat-num">${km === null ? '—' : km.toLocaleString('en')}</div><div class="stat-label">km apart</div></div>
       <div class="stat-tile"><div class="stat-num" id="stat-photos">…</div><div class="stat-label">memories</div></div>
       <div class="stat-tile"><div class="stat-num">${notes.length}</div><div class="stat-label">notes</div></div>
     </div>

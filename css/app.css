@@ -292,6 +292,12 @@
   display: grid; gap: 5px;
 }
 .wizard-summary span { margin-right: 4px; }
+.invite-box {
+  margin: var(--sp-2) 0; padding: 14px 16px; border-radius: var(--radius-sm);
+  background: #fff; border: 2px dashed var(--accent); color: var(--accent-deep);
+  font-family: var(--font-body); font-size: 13px; font-weight: 700;
+  word-break: break-all; user-select: all; cursor: text;
+}
 .opt { font-weight: 700; color: var(--faint); text-transform: none; letter-spacing: 0; }
 
 @media (max-width: 420px) {

@@ -4,6 +4,7 @@ import { store, defaultProfile, photosAvailable, wipeAll } from './store.js';
 import { toast, applyTitle } from './app.js';
 import { ACCENTS, applyAccent } from './setup.js';
 import { syncEnabled, syncReady } from './sync.js';
+import { inviteLink, freeSlot } from './couple.js';
 import { notificationsAllowed, askForNotifications } from './notify.js';
 import { html, render } from './dom.js';
 
@@ -115,7 +116,14 @@ export function renderSettings() {
         <p class="danger-note" style="margin-top:10px">Notes, letters, questions, moods, hugs and your location travel both ways. Photos stay on the device that added them for now.</p>
         <div class="settings-actions">
           <button class="btn" id="btn-notify">${notificationsAllowed() ? '🔔 notifications on' : '🔔 turn on notifications'}</button>
-        </div>` : html`
+        </div>
+        <h3 style="margin-top:22px;font-size:16px">${freeSlot(p) ? `Invite ${p[freeSlot(p)].name || 'them'}` : 'Family invite link'}</h3>
+        <p class="danger-note">${freeSlot(p)
+          ? `${p[freeSlot(p)].name || 'They'} hasn't joined yet. Send this link — they set up their own character when they open it.`
+          : 'Both of you have joined. Only re-send this if one of you needs to set up a new device.'}</p>
+        <div class="invite-box" id="invite-box">${inviteLink()}</div>
+        <div class="settings-actions"><button class="btn-ghost" id="btn-copy-invite">📋 copy invite link</button></div>
+        <p class="danger-note">Anyone who opens this link can see your world — keep it between you two.</p>` : html`
         <p class="danger-note">Right now this app lives only on this device — nothing you write reaches ${p[p.activePartner === 'a' ? 'b' : 'a'].name || 'your partner'} automatically. Turning on sharing takes about ten minutes and stays free; the steps are in <strong>docs/SETUP-SYNC.md</strong> in the app folder.</p>
         <p class="danger-note">Until then, use the backup file below to hand your world over.</p>`}
     </div>
@@ -134,6 +142,20 @@ export function renderSettings() {
     applyAccent(prof.accent);
     el.querySelectorAll('[data-accent]').forEach(x => x.classList.toggle('selected', x === b));
   }));
+
+  el.querySelector('#btn-copy-invite')?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(inviteLink());
+      toast('Invite link copied 💌');
+    } catch {
+      const box = el.querySelector('#invite-box');
+      const range = document.createRange();
+      range.selectNodeContents(box);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+      toast('Selected — long-press to copy');
+    }
+  });
 
   el.querySelector('#btn-notify')?.addEventListener('click', async () => {
     await askForNotifications();

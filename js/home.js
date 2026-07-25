@@ -33,19 +33,28 @@ async function weatherFor(lat, lng) {
 const MOODS = ['🥰', '😊', '🥺', '😴', '😤', '🤒'];
 
 export const AFFECTIONS = {
-  hug: { label: 'a hug', button: '🤗 hug', sent: 'Hug sent', rain: ['🤗', '💕', '💗', '🧸'] },
-  kiss: { label: 'a kiss', button: '😘 kiss', sent: 'Kiss sent', rain: ['😘', '💋', '❤️', '💖'] },
+  hug: { label: 'hug', button: '🤗 hug', sent: 'Hug sent', rain: ['🤗', '💕', '💗', '🧸'] },
+  kiss: { label: 'kiss', button: '😘 kiss', sent: 'Kiss sent', rain: ['😘', '💋', '❤️', '💖'] },
   cuddle: { label: 'cuddles', button: '🫂 cuddles', sent: 'Cuddles sent', rain: ['🫂', '🥰', '💞', '🌙'] },
 };
 
-/** Older versions logged only hugs; fold them into the shared affection log. */
+/** Older versions logged only hugs. Fold them into the shared affection log —
+ *  even if that log already exists, since sync may have created it first. Ids are
+ *  derived from the timestamp so both devices migrate to the same record. */
 function affectionLog() {
-  const log = store.get('affection', null);
-  if (log) return log;
+  const log = store.get('affection', []);
   const legacy = store.get('hugs', []);
-  const migrated = legacy.map(h => ({ ...h, type: 'hug' }));
-  if (migrated.length) store.set('affection', migrated);
-  return migrated;
+  if (legacy.length && !store.get('hugsMigrated', false)) {
+    const have = new Set(log.map(x => x.id));
+    for (const h of legacy) {
+      const id = `legacy-${h.at}`;
+      if (!have.has(id)) log.push({ id, from: h.from, type: 'hug', at: h.at });
+    }
+    log.sort((x, y) => x.at - y.at);
+    store.set('affection', log);
+    store.set('hugsMigrated', true);
+  }
+  return log;
 }
 
 function clockBits(tz) {

@@ -1,6 +1,7 @@
 // Same Sky — memories: photo gallery on IndexedDB with polaroid styling.
 
 import { photoStore, photosAvailable } from './store.js';
+import { uploadPhoto, updatePhotoMeta, deletePhotoEverywhere } from './photosync.js';
 import { toast, fmtDate, todayISO, rotFor } from './app.js';
 import { html, render, clear } from './dom.js';
 
@@ -53,7 +54,10 @@ export function renderMemories() {
     if (!imgs.length) { toast('No images in that drop'); return; }
     const caption = el.querySelector('#inp-caption').value.trim();
     const date = el.querySelector('#inp-date').value || todayISO();
-    for (const f of imgs) await photoStore.add({ blob: f, caption, date });
+    for (const f of imgs) {
+      const id = await photoStore.add({ blob: f, caption, date });
+      uploadPhoto({ id, blob: f, caption, date, fav: false });   // to the shared album
+    }
     toast(`${imgs.length} ${imgs.length === 1 ? 'memory' : 'memories'} saved 📸💕`);
     renderMemories();
   };
@@ -89,6 +93,7 @@ export function renderMemories() {
       e.stopPropagation();
       const ph = all.find(x => x.id === b.dataset.fav);
       await photoStore.update(ph.id, { fav: !ph.fav });
+      updatePhotoMeta(ph.id, { fav: !ph.fav });
       renderMemories();
     }));
     gal.querySelectorAll('[data-open]').forEach(fig => fig.addEventListener('click', () => {
@@ -125,16 +130,19 @@ function openLightbox(ph) {
   root.querySelector('#lightbox').addEventListener('click', e => { if (e.target.id === 'lightbox') close(); });
   root.querySelector('#lb-close').addEventListener('click', close);
   root.querySelector('#lb-caption').addEventListener('change', async e => {
-    await photoStore.update(ph.id, { caption: e.target.value.trim() });
+    const caption = e.target.value.trim();
+    await photoStore.update(ph.id, { caption });
+    updatePhotoMeta(ph.id, { caption });
     toast('Caption saved ✍️');
   });
   root.querySelector('#lb-fav').addEventListener('click', async () => {
     await photoStore.update(ph.id, { fav: !ph.fav });
+    updatePhotoMeta(ph.id, { fav: !ph.fav });
     close();
   });
   root.querySelector('#lb-delete').addEventListener('click', async () => {
-    if (!confirm('Delete this memory forever?')) return;
-    await photoStore.remove(ph.id);
+    if (!confirm('Delete this memory forever?\n\nIt goes from both your devices.')) return;
+    await deletePhotoEverywhere(ph.id);
     toast('Memory deleted');
     close();
   });

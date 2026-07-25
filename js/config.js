@@ -1,19 +1,15 @@
-// Same Sky — the only file you edit to switch sync on.
+﻿// Same Sky - the only file you edit to switch sync on.
 //
-// Leave these empty and the app stays exactly as it is: private, on-device, no
-// accounts, no server. Fill them in (see docs/SETUP-SYNC.md, about 10 minutes) and
-// both phones share the same world: notes, photos, moods, questions and live
-// location arrive on the other device within a second, with a notification.
-//
-// The anon key is meant to be public — it only permits what the database's row
-// policies allow, and those restrict everything to your own couple code.
+// Empty these three values and the app goes straight back to being private and
+// on-device; nothing is deleted. The anon key is public by design - it only permits
+// what the database's row policies allow. COUPLE_CODE is the real secret: anyone who
+// knows it can read your app's contents, so keep it between the two of you.
 
-export const SUPABASE_URL = '';       // e.g. 'https://abcdefgh.supabase.co'
-export const SUPABASE_ANON_KEY = '';  // the long 'anon public' key
-
-// Both phones must use the SAME code — it is what pairs you two together.
-// Treat it like a password: anyone who knows it can read your app's contents.
-export const COUPLE_CODE = '';        // e.g. 'andreass-buttercupp-7f3k9x'
+export const SUPABASE_URL = 'https://ntvafmrfngbqduidetfq.supabase.co';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im50dmFmbXJmbmdicWR1aWRldGZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5ODkxMDAsImV4cCI6MjEwMDU2NTEwMH0.uQioYHhf0GCUux-44rH3V96YWC1k2OkhLcTkiR5IZks';
+// The couple code is NOT here on purpose. It is created when the first person sets
+// up, lives in that device's storage, and reaches the other person only through the
+// invite link — so this file stays safe to publish.
 
 export const syncConfigured = () =>
-  Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && COUPLE_CODE);
+  Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);

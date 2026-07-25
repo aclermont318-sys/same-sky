@@ -1,6 +1,6 @@
 // Same Sky — us: stats, milestone timeline, bucket list, daily question.
 
-import { store, photoStore } from './store.js';
+import { store, photoStore, recordDeletion } from './store.js';
 import { getProfile } from './settings.js';
 import { toast, uid, fmtDate, todayISO, localISO, daysBetween } from './app.js';
 import { html, render } from './dom.js';
@@ -213,6 +213,7 @@ export function renderUs() {
 
   el.querySelectorAll('[data-delq]').forEach(btn => btn.addEventListener('click', () => {
     if (!confirm('Delete this question and its answers?')) return;
+    recordDeletion(btn.dataset.delq);
     store.set('questions', store.get('questions', []).filter(q => q.id !== btn.dataset.delq));
     renderUs();
   }));
@@ -230,6 +231,7 @@ export function renderUs() {
     renderUs();
   });
   el.querySelectorAll('[data-delmile]').forEach(b => b.addEventListener('click', () => {
+    recordDeletion(b.dataset.delmile);
     store.set('milestonesCustom', store.get('milestonesCustom', []).filter(m => m.id !== b.dataset.delmile));
     renderUs();
   }));
@@ -250,6 +252,7 @@ export function renderUs() {
     renderUs();
   }));
   el.querySelectorAll('[data-delbucket]').forEach(b => b.addEventListener('click', () => {
+    recordDeletion(b.dataset.delbucket);
     store.set('bucket', store.get('bucket', []).filter(x => x.id !== b.dataset.delbucket));
     renderUs();
   }));

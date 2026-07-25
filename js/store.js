@@ -115,6 +115,17 @@ function idbOp(mode, fn) {
 
 const idbPut = rec => idbOp('readwrite', os => os.put(rec));
 
+/** Remember that a record was deleted, so the other device doesn't hand it back
+ *  on the next merge. Kept small and pruned; a year is far longer than any sync gap. */
+export function recordDeletion(id) {
+  if (!id) return;
+  const YEAR = 365 * 864e5;
+  const now = Date.now();
+  const kept = store.get('deletedIds', []).filter(d => now - (d.at || 0) < YEAR);
+  if (!kept.some(d => d.id === id)) kept.push({ id, at: now });
+  store.set('deletedIds', kept.slice(-500));
+}
+
 /** Wipe everything — used by "start fresh" in Settings. */
 export async function wipeAll() {
   for (const k of Object.keys(localStorage)) {
@@ -132,6 +143,15 @@ export const photoStore = {
     const id = uid();
     await idbPut({ id, blob, caption, date, fav: false, addedAt: Date.now() });
     return id;
+  },
+  /** Store a photo that arrived from the other device, keeping its id. */
+  async put({ id, blob, caption = '', date, fav = false, addedAt }) {
+    await idbPut({ id, blob, caption, date, fav, addedAt: addedAt || Date.now() });
+    return id;
+  },
+  async has(id) {
+    const rec = await idbOp('readonly', os => os.get(id));
+    return Boolean(rec);
   },
   async all() {
     const rows = await idbOp('readonly', os => os.getAll());

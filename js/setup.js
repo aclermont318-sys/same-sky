@@ -6,6 +6,7 @@
 
 import { store, defaultProfile, deviceTimeZone } from './store.js';
 import { toast, todayISO, fmtDate, applyTitle } from './app.js';
+import { coupleCode, setCoupleCode, newCoupleCode, inviteLink, freeSlot } from './couple.js';
 import { html, render, clear } from './dom.js';
 
 export const ACCENTS = {
@@ -50,7 +51,7 @@ export function runSetup(onDone) {
   step1(onDone);
 }
 
-function shell(bodyFragment, { index, total = 5 }) {
+function shell(bodyFragment, { index, total = 6 }) {
   const root = document.getElementById('overlay-root');
   render(root, html`
     <div class="firstrun">
@@ -95,7 +96,7 @@ function step1(onDone) {
   });
 }
 
-function personStep({ slot, index, title, hint, onNext, onBack }) {
+function personStep({ slot, index, title, hint, onNext, onBack, total = 6 }) {
   const who = draft[slot];
   const root = shell(html`
     <h2 class="wizard-title">${title}</h2>
@@ -128,7 +129,7 @@ function personStep({ slot, index, title, hint, onNext, onBack }) {
       <button class="btn" id="next">continue</button>
     </div>
     <button class="linky" id="skip">skip the city for now</button>
-  `, { index });
+  `, { index, total });
 
   const nameInput = root.querySelector('#name');
   const cityInput = root.querySelector('#city');
@@ -205,14 +206,38 @@ function step2(onDone) {
 }
 
 function step3(onDone) {
-  personStep({
-    slot: 'b',
-    index: 2,
-    title: `And your person 💞`,
-    hint: 'the one on the other side of the map',
-    onNext: () => step4(onDone),
-    onBack: () => step2(onDone),
+  // Only their name here: the rest of their character is theirs to choose when they
+  // open the invite. Anything more and the app would be putting words in their mouth.
+  const root = shell(html`
+    <h2 class="wizard-title">And your person 💞</h2>
+    <p class="wizard-hint">just their name for now</p>
+
+    <div class="field">
+      <label>What do you call them?</label>
+      <input id="pname" value="${draft.b.name || ''}" maxlength="24" placeholder="their name" autocomplete="off">
+    </div>
+
+    <div class="wizard-summary" style="background:var(--sky-soft);color:#4A7396">
+      🔗 At the end you'll get an invite link to send them. When they open it they
+      pick their own avatar, their own city and join your family — you don't have to
+      fill anything in for them.
+    </div>
+
+    <div class="wizard-actions">
+      <button class="btn-ghost" id="back">back</button>
+      <button class="btn" id="next">continue</button>
+    </div>
+  `, { index: 2, total: 6 });
+
+  const input = root.querySelector('#pname');
+  root.querySelector('#back').addEventListener('click', () => step2(onDone));
+  root.querySelector('#next').addEventListener('click', () => {
+    const name = input.value.trim();
+    if (!name) { toast('What should I call them? 💛'); input.focus(); return; }
+    draft.b.name = name;
+    step4(onDone);
   });
+  input.focus();
 }
 
 function step4(onDone) {
@@ -294,13 +319,106 @@ function step5(onDone) {
     draft.title = root.querySelector('#title').value.trim() || 'Same Sky';
     draft.activePartner = 'a';       // whoever ran setup is on this device
     draft.setupComplete = true;
+    draft.a.claimed = true;          // this half of the family is filled in
+    draft.b.claimed = false;         // ...the other half is theirs to complete
+    if (!coupleCode()) setCoupleCode(newCoupleCode());
     store.set('profile', JSON.parse(JSON.stringify(draft)));
-    clear(document.getElementById('overlay-root'));
     applyTitle(draft.title);
     applyAccent(draft.accent);
+    step6(onDone);
+  });
+}
+
+/** The pay-off: the link that brings the other person into the family. */
+function step6(onDone) {
+  const link = inviteLink();
+  const root = shell(html`
+    <div class="wizard-hero">
+      <div class="wizard-mark">💌</div>
+      <h2 class="wizard-title">Invite ${draft.b.name}</h2>
+      <p class="wizard-hint">send this link — it's the key to your family</p>
+    </div>
+
+    <div class="invite-box" id="invite-box">${link}</div>
+
+    <div class="wizard-actions" style="justify-content:center">
+      <button class="btn" id="copy" style="min-width:180px">📋 copy the link</button>
+    </div>
+
+    <div class="wizard-summary" style="margin-top:18px">
+      <div>1 · send it to ${draft.b.name} however you like</div>
+      <div>2 · they open it and set up their own character</div>
+      <div>3 · from then on everything you write reaches each other</div>
+    </div>
+    <p class="wizard-fine">Keep this link private — anyone who opens it can see your world.
+      You can find it again any time in Settings.</p>
+
+    <div class="wizard-actions">
+      <button class="btn-ghost" id="done" style="margin:0 auto">take me in ✨</button>
+    </div>
+  `, { index: 5, total: 6 });
+
+  root.querySelector('#copy').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      toast('Link copied — go send it 💌');
+    } catch {
+      // Clipboard blocked (common on a phone): select it so one tap copies.
+      const box = root.querySelector('#invite-box');
+      const range = document.createRange();
+      range.selectNodeContents(box);
+      const sel = getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      toast('Selected — long-press to copy');
+    }
+  });
+
+  root.querySelector('#done').addEventListener('click', () => {
+    clear(document.getElementById('overlay-root'));
     toast(`Welcome, ${draft.a.name} 💕`);
     onDone();
   });
+}
+
+/** What the invited person sees: the family already exists, they add themselves. */
+export function joinFamily(onDone) {
+  const p = store.get('profile', null);
+  if (!p) return;
+  const slot = freeSlot(p) || 'b';
+  const other = slot === 'a' ? 'b' : 'a';
+  Object.assign(draft, JSON.parse(JSON.stringify(p)));
+  draft.a.tz = draft.a.tz || '';
+  applyAccent(draft.accent);
+  applyTitle(draft.title);
+
+  const root = shell(html`
+    <div class="wizard-hero" style="padding-bottom:0">
+      <div class="wizard-mark">💌</div>
+      <h2 class="wizard-title">${p[other]?.name || 'Someone'} invited you</h2>
+      <p class="wizard-hint">welcome to the family — now make yourself at home</p>
+    </div>
+  `, { index: 0, total: 2 });
+
+  setTimeout(() => {
+    personStep({
+      slot,
+      index: 1,
+      total: 2,
+      title: 'Your character 💛',
+      hint: `${p[other]?.name || 'They'} already set up their side`,
+      onNext: () => {
+        draft[slot].claimed = true;
+        draft.activePartner = slot;
+        draft.setupComplete = true;
+        store.set('profile', JSON.parse(JSON.stringify(draft)));
+        clear(document.getElementById('overlay-root'));
+        toast(`You're in, ${draft[slot].name} 💕`);
+        onDone();
+      },
+    });
+  }, 1600);
+  return root;
 }
 
 // ————— short picker, used after restoring a backup on the other device —————

@@ -7,11 +7,14 @@ import { renderMemories } from './memories.js';
 import { renderNotes } from './notes.js';
 import { renderUs } from './us.js';
 import { renderSettings } from './settings.js';
-import { runSetup, askWhoIsHere, applyAccent } from './setup.js';
+import { runSetup, askWhoIsHere, joinFamily, applyAccent } from './setup.js';
+import { consumeJoinLink, coupleCode, freeSlot } from './couple.js';
 import { initAutoLocation } from './location.js';
 import { initSync, syncEnabled, onRemoteChange } from './sync.js';
 import { initNotifications, clearBadge } from './notify.js';
+import { initPhotoSync } from './photosync.js';
 import { store } from './store.js';
+import { html, render } from './dom.js';
 
 const RENDERERS = {
   home: renderHome,
@@ -107,13 +110,41 @@ function watchOtherWindows() {
 }
 
 function boot() {
+  // Tapping an invite while the app is already open only changes the hash — the page
+  // never reloads — so catch that and start again properly.
+  window.addEventListener('hashchange', () => {
+    if (consumeJoinLink()) location.reload();
+  });
+
+  // An invite link carries the couple code; take it before anything else reads it.
+  const invited = consumeJoinLink();
   const p = store.get('profile', null);
+  if (invited && p?.setupComplete && !freeSlot(p)) {
+    // Opening an invite on a device that is already fully set up would be confusing.
+    toast('This device is already part of a family 💌');
+  }
   applyTitle(p?.title);
   applyAccent(p?.accent);
   document.querySelectorAll('[data-nav]').forEach(b =>
     b.addEventListener('click', () => showView(b.dataset.nav)));
   watchOtherWindows();
   initAutoLocation();
+
+  const startFlow = () => {
+    const now = store.get('profile', null);
+    applyTitle(now?.title);
+    applyAccent(now?.accent);
+    if (!now?.setupComplete) {
+      runSetup(() => showView('home'));            // first person: build the family
+    } else if (!now.activePartner) {
+      // The family exists on this device but nobody here has said who they are.
+      // If a place at the table is still free, this is the invited person arriving.
+      if (freeSlot(now)) joinFamily(() => showView('home'));
+      else askWhoIsHere(() => showView('home'));
+    } else {
+      rerender();
+    }
+  };
 
   if (syncEnabled()) {
     initNotifications();
@@ -123,15 +154,43 @@ function boot() {
       const typing = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
       if (!typing) rerender();
     });
-    initSync();
-  }
 
-  if (!p?.setupComplete) {
-    runSetup(() => showView('home'));       // brand-new install: ask for everything
-  } else if (!p.activePartner) {
-    askWhoIsHere(() => showView('home'));   // restored backup: just ask who's here
+    if (p?.setupComplete) {
+      startFlow();
+      initSync().then(() => initPhotoSync(() => {
+        if (current === 'memories') rerender();
+      }));
+    } else {
+      // A device opening the app for the first time: give sync a moment to hand
+      // over the couple's world, so it asks "who's holding this?" instead of
+      // making the second person set everything up from scratch again.
+      showConnecting();
+      initSync().finally(() => {
+        hideConnecting();
+        startFlow();
+        initPhotoSync(() => { if (current === 'memories') rerender(); });
+      });
+    }
+  } else {
+    startFlow();
   }
   showView('home');
+}
+
+function showConnecting() {
+  const root = document.getElementById('overlay-root');
+  render(root, html`
+    <div class="firstrun">
+      <div class="firstrun-card">
+        <div class="wizard-mark">💌</div>
+        <div class="firstrun-sub">finding your person…</div>
+      </div>
+    </div>`);
+}
+
+function hideConnecting() {
+  const root = document.getElementById('overlay-root');
+  if (root.querySelector('.wizard-mark')) root.replaceChildren();
 }
 
 boot();

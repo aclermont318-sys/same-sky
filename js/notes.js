@@ -1,6 +1,6 @@
 // Same Sky — notes: pastel sticky wall + sealed "open when…" letters.
 
-import { store } from './store.js';
+import { store, recordDeletion } from './store.js';
 import { getProfile } from './settings.js';
 import { toast, uid, fmtDate, todayISO, localISO, rotFor } from './app.js';
 import { html, render, clear } from './dom.js';
@@ -78,6 +78,7 @@ export function renderNotes() {
   }));
   el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
     if (!confirm('Peel this note off forever?')) return;
+    recordDeletion(b.dataset.del);
     store.set('notes', store.get('notes', []).filter(x => x.id !== b.dataset.del));
     renderNotes();
   }));

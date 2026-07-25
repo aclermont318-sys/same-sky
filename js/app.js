@@ -8,7 +8,7 @@ import { renderNotes } from './notes.js';
 import { renderUs } from './us.js';
 import { renderSettings } from './settings.js';
 import { runSetup, askWhoIsHere, joinFamily, applyAccent } from './setup.js';
-import { consumeJoinLink, coupleCode, freeSlot } from './couple.js';
+import { consumeJoinLink, coupleCode, freeSlot, linkIntent } from './couple.js';
 import { initAutoLocation } from './location.js';
 import { initSync, syncEnabled, onRemoteChange } from './sync.js';
 import { initNotifications, clearBadge } from './notify.js';
@@ -18,7 +18,7 @@ import { html, render } from './dom.js';
 
 // Lets a browser tell you exactly which build it is running — stale caches on a
 // phone are otherwise indistinguishable from a code bug.
-export const BUILD = '2026-07-25T19:45Z';
+export const BUILD = '2026-07-25T20:00Z';
 window.SAME_SKY_BUILD = BUILD;
 
 const RENDERERS = {
@@ -143,8 +143,9 @@ function boot() {
       runSetup(() => showView('home'));            // first person: build the family
     } else if (!now.activePartner) {
       // The family exists on this device but nobody here has said who they are.
-      // If a place at the table is still free, this is the invited person arriving.
-      if (freeSlot(now)) joinFamily(() => showView('home'));
+      // A free seat means the invited person is arriving — unless this is simply
+      // one of you adding another of your own phones, which just asks who you are.
+      if (freeSlot(now) && linkIntent() !== 'device') joinFamily(() => showView('home'));
       else askWhoIsHere(() => showView('home'));
     } else {
       rerender();

@@ -4,7 +4,7 @@ import { store, defaultProfile, photosAvailable, wipeAll } from './store.js';
 import { toast, applyTitle } from './app.js';
 import { ACCENTS, applyAccent } from './setup.js';
 import { syncEnabled, syncReady } from './sync.js';
-import { inviteLink, freeSlot } from './couple.js';
+import { inviteLink, deviceLink, freeSlot } from './couple.js';
 import { notificationsAllowed, askForNotifications } from './notify.js';
 import { html, render } from './dom.js';
 
@@ -123,7 +123,11 @@ export function renderSettings() {
           : 'Both of you have joined. Only re-send this if one of you needs to set up a new device.'}</p>
         <div class="invite-box" id="invite-box">${inviteLink()}</div>
         <div class="settings-actions"><button class="btn-ghost" id="btn-copy-invite">📋 copy invite link</button></div>
-        <p class="danger-note">Anyone who opens this link can see your world — keep it between you two.</p>` : html`
+        <h3 style="margin-top:22px;font-size:16px">Your own other phone</h3>
+        <p class="danger-note">Putting the app on a second device of your own? Use this one instead — it asks who you are rather than offering the free seat.</p>
+        <div class="invite-box" id="device-box">${deviceLink()}</div>
+        <div class="settings-actions"><button class="btn-ghost" id="btn-copy-device">📋 copy my device link</button></div>
+        <p class="danger-note">Either link opens your world — keep both between you two.</p>` : html`
         <p class="danger-note">Right now this app lives only on this device — nothing you write reaches ${p[p.activePartner === 'a' ? 'b' : 'a'].name || 'your partner'} automatically. Turning on sharing takes about ten minutes and stays free; the steps are in <strong>docs/SETUP-SYNC.md</strong> in the app folder.</p>
         <p class="danger-note">Until then, use the backup file below to hand your world over.</p>`}
     </div>
@@ -149,6 +153,20 @@ export function renderSettings() {
       toast('Invite link copied 💌');
     } catch {
       const box = el.querySelector('#invite-box');
+      const range = document.createRange();
+      range.selectNodeContents(box);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+      toast('Selected — long-press to copy');
+    }
+  });
+
+  el.querySelector('#btn-copy-device')?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(deviceLink());
+      toast('Device link copied 📱');
+    } catch {
+      const box = el.querySelector('#device-box');
       const range = document.createRange();
       range.selectNodeContents(box);
       getSelection().removeAllRanges();

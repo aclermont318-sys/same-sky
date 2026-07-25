@@ -24,10 +24,16 @@ export function newCoupleCode() {
   return `samesky-${hex.slice(0, 24)}`;
 }
 
+const appBase = () => `${location.origin}${location.pathname}`.replace(/index\.html$/, '');
+
 /** The link the first person sends: "come join the family". */
 export function inviteLink() {
-  const base = `${location.origin}${location.pathname}`.replace(/index\.html$/, '');
-  return `${base}#join=${coupleCode()}`;
+  return `${appBase()}#join=${coupleCode()}`;
+}
+
+/** The link you send yourself, to put the app on your own phone as well. */
+export function deviceLink() {
+  return `${appBase()}#device=${coupleCode()}`;
 }
 
 /** If this page was opened from an invite, take the code.
@@ -37,11 +43,20 @@ export function inviteLink() {
  *  installed web app gets its own storage — so if the code were stripped first, the
  *  icon on her home screen would open an empty app with no way back to the family. */
 export function consumeJoinLink() {
-  const found = (location.hash || '').match(/[#&]join=([A-Za-z0-9_-]{8,})/);
+  const hash = location.hash || '';
+  const asNewPerson = hash.match(/[#&]join=([A-Za-z0-9_-]{8,})/);
+  const asOwnDevice = hash.match(/[#&]device=([A-Za-z0-9_-]{8,})/);
+  const found = asNewPerson || asOwnDevice;
   if (!found) return false;
   setCoupleCode(found[1]);
+  // Two different arrivals: someone joining the family for the first time, versus
+  // one of you adding another of your own devices. The second must not be offered
+  // the empty seat — it belongs to the partner who hasn't joined yet.
+  store.set('linkIntent', asOwnDevice ? 'device' : 'join');
   return true;
 }
+
+export const linkIntent = () => store.get('linkIntent', 'join');
 
 /** Called once someone is safely in: tidy the secret out of the address bar. */
 export function clearJoinHash() {

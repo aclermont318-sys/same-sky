@@ -2,7 +2,7 @@
 // Views live in their own modules and render into #view-<name>.
 
 import { renderHome } from './home.js';
-import { renderMap } from './map.js';
+import { renderMap, teardownMap } from './map.js';
 import { renderMemories } from './memories.js';
 import { renderNotes } from './notes.js';
 import { renderUs } from './us.js';
@@ -22,6 +22,7 @@ let current = 'home';
 
 export function showView(name) {
   if (!RENDERERS[name]) return;
+  if (name !== 'map') teardownMap();
   current = name;
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${name}`));
   document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('active', b.dataset.nav === name));

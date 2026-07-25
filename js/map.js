@@ -7,6 +7,10 @@ import { html, render, escapeHTML } from './dom.js';
 
 let map = null;
 
+export function teardownMap() {
+  if (map) { map.remove(); map = null; }
+}
+
 export function distanceKm(a, b) {
   const R = 6371, toRad = x => x * Math.PI / 180;
   const s = Math.sin(toRad(b.lat - a.lat) / 2) ** 2 +

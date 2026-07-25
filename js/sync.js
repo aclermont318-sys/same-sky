@@ -12,6 +12,9 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY, syncConfigured } from './config.js';
 import { store, onWrite } from './store.js';
 import { coupleCode } from './couple.js';
+import { roomId, sealJSON, openJSON } from './crypto.js';
+
+let room = null;   // hash of the couple code: what the server sees
 
 const SYNCED_KEYS = [
   'profile', 'notes', 'letters', 'questions', 'moods',
@@ -125,8 +128,9 @@ function schedulePush(key, value) {
   clearTimeout(pushTimers.get(key));
   pushTimers.set(key, setTimeout(async () => {
     try {
+      const sealed = await sealJSON(coupleCode(), value);
       await client.from('couple_data').upsert(
-        { couple_code: coupleCode(), key, value, updated_at: new Date().toISOString() },
+        { couple_code: room, key, value: sealed, updated_at: new Date().toISOString() },
         { onConflict: 'couple_code,key' },
       );
     } catch { /* offline: the next save will carry it up */ }
@@ -137,22 +141,28 @@ export async function initSync() {
   if (!syncConfigured() || !coupleCode()) return false;
   try {
     client = await loadClient();
+    room = await roomId(coupleCode());
     const { data } = await client.auth.getSession();
     if (!data?.session) await client.auth.signInAnonymously();
 
     // 1. Pull everything that already exists, so a new device fills up instantly.
     const { data: rows, error } = await client
-      .from('couple_data').select('key,value').eq('couple_code', coupleCode());
+      .from('couple_data').select('key,value').eq('couple_code', room);
     if (error) throw error;
-    for (const row of rows || []) applyRemote(row.key, row.value);
+    for (const row of rows || []) {
+      try { applyRemote(row.key, await openJSON(coupleCode(), row.value)); }
+      catch { /* not ours to read — wrong code */ }
+    }
 
     // 2. Listen for anything the other device writes from now on.
-    client.channel(`couple:${coupleCode()}`)
+    client.channel(`couple:${room}`)
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'couple_data', filter: `couple_code=eq.${coupleCode()}` },
-        payload => {
+        { event: '*', schema: 'public', table: 'couple_data', filter: `couple_code=eq.${room}` },
+        async payload => {
           const row = payload.new;
-          if (row?.key) applyRemote(row.key, row.value);
+          if (!row?.key) return;
+          try { applyRemote(row.key, await openJSON(coupleCode(), row.value)); }
+          catch { /* can't open it, so it isn't for us */ }
         })
       .subscribe();
 

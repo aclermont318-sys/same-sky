@@ -10,23 +10,27 @@
 import { store, photoStore, recordDeletion } from './store.js';
 import { syncClient, syncReady, syncEnabled } from './sync.js';
 import { coupleCode } from './couple.js';
+import { roomId, sealBytes, openBytes } from './crypto.js';
 
 const BUCKET = 'photos';
 
-const pathFor = id => `${coupleCode()}/${id}`;
+// Photos are encrypted before upload and filed under the hashed room id, so the
+// bucket holds nothing readable and nothing guessable.
+const pathFor = async id => `${await roomId(coupleCode())}/${id}`;
 
 /** Called after a photo is saved locally: put it where the other person can get it. */
 export async function uploadPhoto({ id, blob, caption = '', date, fav = false }) {
   const meta = store.get('photoMeta', []);
   if (!meta.some(m => m.id === id)) {
-    meta.push({ id, caption, date, fav, path: pathFor(id), at: Date.now() });
+    meta.push({ id, caption, date, fav, type: blob.type || 'image/jpeg', at: Date.now() });
     store.set('photoMeta', meta);          // syncs immediately; the file follows
   }
   const client = syncClient();
   if (!client || !syncReady()) return false;
   try {
+    const sealed = await sealBytes(coupleCode(), blob);
     const { error } = await client.storage.from(BUCKET)
-      .upload(pathFor(id), blob, { upsert: true, contentType: blob.type || 'image/jpeg' });
+      .upload(await pathFor(id), sealed, { upsert: true, contentType: 'application/octet-stream' });
     return !error;
   } catch {
     return false;   // offline: pullMissingPhotos on either device will retry later
@@ -42,9 +46,10 @@ export async function pullMissingPhotos() {
   for (const m of meta) {
     try {
       if (await photoStore.has(m.id)) continue;
-      const { data, error } = await client.storage.from(BUCKET).download(m.path || pathFor(m.id));
+      const { data, error } = await client.storage.from(BUCKET).download(await pathFor(m.id));
       if (error || !data) continue;
-      await photoStore.put({ id: m.id, blob: data, caption: m.caption, date: m.date, fav: m.fav, addedAt: m.at });
+      const blob = await openBytes(coupleCode(), data, m.type || 'image/jpeg');
+      await photoStore.put({ id: m.id, blob, caption: m.caption, date: m.date, fav: m.fav, addedAt: m.at });
       fetched++;
     } catch { /* try again next time the app opens */ }
   }
@@ -61,7 +66,8 @@ export async function backfillPhotos() {
     const known = meta.find(m => m.id === p.id);
     if (known) {
       // Metadata exists, but make sure the file itself really made it up.
-      const { data } = await client.storage.from(BUCKET).list(coupleCode(), { search: p.id });
+      const { data } = await client.storage.from(BUCKET)
+        .list(await roomId(coupleCode()), { search: p.id });
       if (data && data.length) continue;
     }
     if (await uploadPhoto(p)) sent++;
@@ -83,7 +89,7 @@ export async function deletePhotoEverywhere(id) {
   await photoStore.remove(id);
   const client = syncClient();
   if (!client || !syncReady()) return;
-  try { await client.storage.from(BUCKET).remove([pathFor(id)]); } catch { /* row is gone either way */ }
+  try { await client.storage.from(BUCKET).remove([await pathFor(id)]); } catch { /* row is gone either way */ }
 }
 
 /** Keep the local album in step with the shared one. */

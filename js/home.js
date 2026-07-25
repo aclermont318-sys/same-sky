@@ -2,9 +2,9 @@
 
 import { store } from './store.js';
 import { getProfile } from './settings.js';
-import { showView, toast, fmtDate, todayISO, daysBetween, relTime } from './app.js';
+import { showView, toast, fmtDate, todayISO, daysBetween, relTime, uid } from './app.js';
 import { html, render } from './dom.js';
-import { questionOfToday } from './us.js';
+import { unansweredFor } from './us.js';
 
 let timer = null;
 
@@ -32,6 +32,22 @@ async function weatherFor(lat, lng) {
 
 const MOODS = ['🥰', '😊', '🥺', '😴', '😤', '🤒'];
 
+export const AFFECTIONS = {
+  hug: { label: 'a hug', button: '🤗 hug', sent: 'Hug sent', rain: ['🤗', '💕', '💗', '🧸'] },
+  kiss: { label: 'a kiss', button: '😘 kiss', sent: 'Kiss sent', rain: ['😘', '💋', '❤️', '💖'] },
+  cuddle: { label: 'cuddles', button: '🫂 cuddles', sent: 'Cuddles sent', rain: ['🫂', '🥰', '💞', '🌙'] },
+};
+
+/** Older versions logged only hugs; fold them into the shared affection log. */
+function affectionLog() {
+  const log = store.get('affection', null);
+  if (log) return log;
+  const legacy = store.get('hugs', []);
+  const migrated = legacy.map(h => ({ ...h, type: 'hug' }));
+  if (migrated.length) store.set('affection', migrated);
+  return migrated;
+}
+
 function clockBits(tz) {
   const now = new Date();
   try {
@@ -56,8 +72,9 @@ export function renderHome() {
   const me = p.activePartner || 'a';
   const you = me === 'a' ? 'b' : 'a';
   const moods = store.get('moods', {});
-  const hugs = store.get('hugs', []);
-  const lastHugFromYou = [...hugs].reverse().find(h => h.from === you);
+  const affection = affectionLog();
+  const lastFromThem = [...affection].reverse().find(h => h.from === you);
+  const waiting = unansweredFor(me);
   const el = document.getElementById('view-home');
 
   const visitDays = p.nextVisit ? daysBetween(todayISO(), p.nextVisit) : null;
@@ -106,17 +123,28 @@ export function renderHome() {
       </div>
       <div class="card hug-card">
         <h2 class="card-title">Missing them? <span class="hint">send love across the sky</span></h2>
-        <button class="hug-btn" id="btn-hug">🤗 send a hug</button>
-        <div class="hug-log">${lastHugFromYou ? `last hug from ${p[you].name} · ${relTime(lastHugFromYou.at)}` : 'no hugs yet — be the first 💌'}</div>
+        <div class="affection-row">
+          ${Object.entries(AFFECTIONS).map(([key, a]) => html`
+            <button class="hug-btn affection-btn" data-affection="${key}">${a.button}</button>`)}
+        </div>
+        <div class="hug-log">
+          ${lastFromThem
+            ? `last ${AFFECTIONS[lastFromThem.type]?.label || 'hug'} from ${p[you].name} · ${relTime(lastFromThem.at)}`
+            : `nothing from ${p[you].name} yet — send the first 💌`}
+        </div>
       </div>
     </div>
 
     <div class="card qteaser">
       <div>
-        <div class="loc-caption" style="text-align:left">today's question</div>
-        <div class="qteaser-q">“${questionOfToday()}”</div>
+        <div class="loc-caption" style="text-align:left">
+          ${waiting.length ? `${p[you].name} asked you ${waiting.length === 1 ? 'something' : `${waiting.length} things`}` : 'questions'}
+        </div>
+        <div class="qteaser-q">
+          ${waiting.length ? html`“${waiting[waiting.length - 1].text}”` : html`ask ${p[you].name} something today 💭`}
+        </div>
       </div>
-      <button class="btn" id="btn-answer">answer it →</button>
+      <button class="btn" id="btn-answer">${waiting.length ? 'answer it →' : 'ask them →'}</button>
     </div>
   `);
 
@@ -185,23 +213,26 @@ export function renderHome() {
     renderHome();
   }));
 
-  el.querySelector('#btn-hug').addEventListener('click', () => {
-    const hugsNow = store.get('hugs', []);
-    hugsNow.push({ from: me, at: Date.now() });
-    store.set('hugs', hugsNow.slice(-50));
-    heartBurst(p[me].emoji);
-    toast(`Hug sent to ${p[you].name} 🤗💕`);
-  });
+  el.querySelectorAll('[data-affection]').forEach(btn => btn.addEventListener('click', () => {
+    const type = btn.dataset.affection;
+    const spec = AFFECTIONS[type];
+    const log = store.get('affection', affectionLog());
+    log.push({ id: uid(), from: me, type, at: Date.now() });
+    store.set('affection', log.slice(-100));
+    heartBurst(spec.rain);
+    toast(`${spec.sent} to ${p[you].name} ${spec.rain[0]}`);
+    renderHome();
+  }));
 
   el.querySelector('#btn-set-visit')?.addEventListener('click', () => showView('settings'));
   el.querySelector('#btn-answer').addEventListener('click', () => showView('us'));
 }
 
-function heartBurst(emoji) {
+export function heartBurst(symbols) {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const burst = document.createElement('div');
   burst.className = 'heart-burst';
-  const picks = ['💕', '💗', '💖', '💘', '💝', '❤️', emoji];
+  const picks = Array.isArray(symbols) && symbols.length ? symbols : ['💕', '💗', '💖'];
   for (let i = 0; i < 26; i++) {
     const it = document.createElement('i');
     it.textContent = picks[i % picks.length];

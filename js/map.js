@@ -3,12 +3,42 @@
 import { store } from './store.js';
 import { getProfile } from './settings.js';
 import { toast, relTime, showView } from './app.js';
+import { autoLocationOn, setAutoLocation } from './location.js';
 import { html, render, escapeHTML } from './dom.js';
 
 let map = null;
+let markers = {};
+let line = null;
 
 export function teardownMap() {
   if (map) { map.remove(); map = null; }
+  markers = {};
+  line = null;
+}
+
+/** Move the pins without rebuilding the map — used when a location auto-updates,
+ *  so the map never flickers or re-zooms under someone who is looking at it. */
+export function refreshMapPositions() {
+  if (!map || !markers.a || !markers.b) return false;
+  const p = getProfile();
+  if (!hasCoords(p.a) || !hasCoords(p.b)) return false;
+
+  const A = [p.a.lat, p.a.lng], B = [p.b.lat, p.b.lng];
+  markers.a.setLatLng(A);
+  markers.b.setLatLng(B);
+  line?.setLatLngs([A, B]);
+
+  const el = document.getElementById('view-map');
+  const num = el?.querySelector('.distance-num');
+  if (num) num.textContent = Math.round(distanceKm(p.a, p.b)).toLocaleString('en');
+  const cap = el?.querySelector('.loc-caption');
+  if (cap) {
+    cap.textContent = ['a', 'b'].map(slot => `${p[slot].emoji} ${p[slot].name}: ${
+      p[slot].lastLocAt
+        ? `${p[slot].auto ? 'auto' : 'live'} · ${relTime(p[slot].lastLocAt)}`
+        : `home city (${p[slot].city || 'not set'})`}`).join(' · ');
+  }
+  return true;
 }
 
 export function hasCoords(q) {
@@ -63,13 +93,20 @@ export function renderMap() {
       <div id="leaflet-holder"></div>
       <div class="map-actions">
         <button class="btn" id="btn-locate">📍 update my location</button>
+        <label class="auto-toggle">
+          <input type="checkbox" id="auto-loc" ${autoLocationOn() ? 'checked' : ''}>
+          keep it updating on its own
+        </label>
+      </div>
+      <div class="map-actions" style="margin-top:8px">
         <span class="chip">${p[me].emoji} you</span>
         <span class="chip sky">${p[you].emoji} ${p[you].name}</span>
       </div>
       <div class="loc-caption">
-        ${p.a.emoji} ${p.a.name}: ${p.a.lastLocAt ? `live · ${relTime(p.a.lastLocAt)}` : `home city (${p.a.city})`}
-        &nbsp;·&nbsp;
-        ${p.b.emoji} ${p.b.name}: ${p.b.lastLocAt ? `live · ${relTime(p.b.lastLocAt)}` : `home city (${p.b.city})`}
+        ${['a', 'b'].map((slot, i) => html`${i ? ' · ' : ''}${p[slot].emoji} ${p[slot].name}: ${
+          p[slot].lastLocAt
+            ? `${p[slot].auto ? 'auto' : 'live'} · ${relTime(p[slot].lastLocAt)}`
+            : `home city (${p[slot].city || 'not set'})`}`)}
       </div>
     </div>
   `);
@@ -87,11 +124,17 @@ export function renderMap() {
   }).addTo(map);
 
   const A = [p.a.lat, p.a.lng], B = [p.b.lat, p.b.lng];
-  L.marker(A, { icon: pinIcon(p.a.emoji) }).addTo(map).bindPopup(`${escapeHTML(p.a.name)} · ${escapeHTML(p.a.city)}`);
-  L.marker(B, { icon: pinIcon(p.b.emoji) }).addTo(map).bindPopup(`${escapeHTML(p.b.name)} · ${escapeHTML(p.b.city)}`);
-  L.polyline([A, B], { dashArray: '6 10', weight: 2.5, color: '#D9576E', opacity: .8 }).addTo(map);
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#D9576E';
+  markers.a = L.marker(A, { icon: pinIcon(p.a.emoji) }).addTo(map).bindPopup(`${escapeHTML(p.a.name)} · ${escapeHTML(p.a.city)}`);
+  markers.b = L.marker(B, { icon: pinIcon(p.b.emoji) }).addTo(map).bindPopup(`${escapeHTML(p.b.name)} · ${escapeHTML(p.b.city)}`);
+  line = L.polyline([A, B], { dashArray: '6 10', weight: 2.5, color: accent, opacity: .8 }).addTo(map);
   map.fitBounds([A, B], { padding: [56, 56] });
   setTimeout(() => map && map.invalidateSize(), 60);
+
+  el.querySelector('#auto-loc').addEventListener('change', e => {
+    const on = setAutoLocation(e.target.checked);
+    e.target.checked = on;
+  });
 
   el.querySelector('#btn-locate').addEventListener('click', () => {
     if (!navigator.geolocation) { toast('This browser has no location support'); return; }

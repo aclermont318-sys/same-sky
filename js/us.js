@@ -49,8 +49,15 @@ const QUESTIONS = [
   'What are we celebrating first when the distance is over for good?',
 ];
 
-export function questionOfToday() {
-  return QUESTIONS[Math.floor(Date.now() / 864e5) % QUESTIONS.length];
+/** A random prompt, only ever offered as inspiration — never posted on its own. */
+export function inspirationQuestion(exclude = '') {
+  const pool = QUESTIONS.filter(q => q !== exclude);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/** Questions the other person asked that this partner hasn't answered yet. */
+export function unansweredFor(slot) {
+  return store.get('questions', []).filter(q => q.from !== slot && !q.answers?.[slot]);
 }
 
 function autoMilestones(startDate) {
@@ -74,9 +81,9 @@ export function renderUs() {
   const notes = store.get('notes', []);
   const bucket = store.get('bucket', []);
   const custom = store.get('milestonesCustom', []);
-  const answers = store.get('answers', {});
+  const questions = store.get('questions', []);
   const today = todayISO();
-  const todaysA = answers[today] || {};
+  const you = me === 'a' ? 'b' : 'a';
   const el = document.getElementById('view-us');
 
   const days = p.startDate ? Math.max(0, daysBetween(p.startDate, today)) : 0;
@@ -96,20 +103,40 @@ export function renderUs() {
     </div>
 
     <div class="card" style="margin-top:24px">
-      <h2 class="card-title">Daily question <span class="hint">same question, both hearts</span></h2>
-      <div class="qa-question">“${questionOfToday()}”</div>
-      <div class="qa-bubbles">
-        ${['a', 'b'].map(slot => html`
-          <div class="qa-bubble ${slot}">
-            <div class="qa-who">${p[slot].emoji} ${p[slot].name}</div>
-            ${todaysA[slot]
-              ? html`<div class="qa-text">${todaysA[slot]}</div>`
-              : slot === me
-                ? html`<textarea id="qa-input" placeholder="your answer…" maxlength="600"></textarea>
-                       <button class="btn btn-small" id="qa-save" style="margin-top:8px">save answer</button>`
-                : html`<div class="qa-empty">no answer yet — the suspense! 🫣</div>`}
-          </div>`)}
+      <h2 class="card-title">Questions <span class="hint">ask them anything, any time</span></h2>
+      <div class="composer">
+        <textarea id="q-text" placeholder="what do you want to ask ${p[you].name}?" maxlength="300"></textarea>
+        <div class="composer-row">
+          <button class="btn-ghost btn-small" id="q-inspire">🎲 inspire me</button>
+          <button class="btn" id="q-ask" style="margin-left:auto">ask ${p[you].name} 💭</button>
+        </div>
       </div>
+
+      ${questions.length ? html`
+        <div class="q-list">
+          ${[...questions].sort((x, y) => y.createdAt - x.createdAt).map(q => html`
+            <div class="q-item ${q.from !== me && !q.answers?.[me] ? 'needs-you' : ''}">
+              <div class="q-head">
+                <span class="q-who">${p[q.from]?.emoji || '💭'} ${p[q.from]?.name || '?'} asked</span>
+                <span class="q-when">${fmtDate(localISO(new Date(q.createdAt)))}</span>
+                ${q.from === me ? html`<button class="sticky-btn" data-delq="${q.id}" title="delete">🗑</button>` : ''}
+              </div>
+              <div class="qa-question q-text">“${q.text}”</div>
+              <div class="qa-bubbles">
+                ${['a', 'b'].map(slot => html`
+                  <div class="qa-bubble ${slot}">
+                    <div class="qa-who">${p[slot].emoji} ${p[slot].name}</div>
+                    ${q.answers?.[slot]
+                      ? html`<div class="qa-text">${q.answers[slot].text}</div>`
+                      : slot === me
+                        ? html`<textarea data-ans="${q.id}" placeholder="your answer…" maxlength="600"></textarea>
+                               <button class="btn btn-small" data-saveans="${q.id}" style="margin-top:8px">save answer</button>`
+                        : html`<div class="qa-empty">${slot === q.from ? 'they asked — over to you 💭' : 'no answer yet — the suspense! 🫣'}</div>`}
+                  </div>`)}
+              </div>
+            </div>`)}
+        </div>` : html`
+        <div class="empty"><span class="empty-emoji">💭</span>no questions yet — ask ${p[you].name} the first one</div>`}
     </div>
 
     <div class="card">
@@ -153,15 +180,42 @@ export function renderUs() {
     if (t) t.textContent = n.toLocaleString('en');
   });
 
-  el.querySelector('#qa-save')?.addEventListener('click', () => {
-    const v = el.querySelector('#qa-input').value.trim();
-    if (!v) { toast('Write your answer first 💭'); return; }
-    const a = store.get('answers', {});
-    a[today] = { ...(a[today] || {}), [me]: v };
-    store.set('answers', a);
-    toast('Answer saved 💬💕');
+  el.querySelector('#q-inspire').addEventListener('click', () => {
+    const box = el.querySelector('#q-text');
+    box.value = inspirationQuestion(box.value.trim());
+    box.focus();
+  });
+
+  el.querySelector('#q-ask').addEventListener('click', () => {
+    const box = el.querySelector('#q-text');
+    const text = box.value.trim();
+    if (!text) { toast('Type a question first 💭'); return; }
+    const fresh = store.get('questions', []);
+    fresh.push({ id: uid(), from: me, text, createdAt: Date.now(), answers: {} });
+    store.set('questions', fresh);
+    toast(`Asked ${p[you].name} 💭`);
     renderUs();
   });
+
+  el.querySelectorAll('[data-saveans]').forEach(btn => btn.addEventListener('click', () => {
+    const id = btn.dataset.saveans;
+    const v = el.querySelector(`[data-ans="${id}"]`).value.trim();
+    if (!v) { toast('Write your answer first 💭'); return; }
+    const fresh = store.get('questions', []);
+    const q = fresh.find(x => x.id === id);
+    if (q) {
+      q.answers = { ...(q.answers || {}), [me]: { text: v, at: Date.now() } };
+      store.set('questions', fresh);
+      toast('Answer saved 💬💕');
+    }
+    renderUs();
+  }));
+
+  el.querySelectorAll('[data-delq]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Delete this question and its answers?')) return;
+    store.set('questions', store.get('questions', []).filter(q => q.id !== btn.dataset.delq));
+    renderUs();
+  }));
 
   // As in notes.js: re-read before every write so a second open window can't be
   // clobbered by this view's older in-memory copy.

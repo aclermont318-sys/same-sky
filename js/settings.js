@@ -3,6 +3,8 @@
 import { store, defaultProfile, photosAvailable, wipeAll } from './store.js';
 import { toast, applyTitle } from './app.js';
 import { ACCENTS, applyAccent } from './setup.js';
+import { syncEnabled, syncReady } from './sync.js';
+import { notificationsAllowed, askForNotifications } from './notify.js';
 import { html, render } from './dom.js';
 
 function zones() {
@@ -50,6 +52,11 @@ function partnerFields(p, slot) {
       </div>
       <div class="field"><label>Time zone</label>
         <select data-f="${slot}.tz">
+          ${/* An unset zone must stay unset. Without this placeholder the browser
+                would show the first zone in the list and the next Save would write
+                it in — a clock that looks right and lies. */ ''}
+          <option value="" ${!q.tz ? 'selected' : ''}>— not set yet —</option>
+          ${!q.tz || zones().includes(q.tz) ? '' : html`<option value="${q.tz}" selected>${q.tz.replace(/_/g, ' ')}</option>`}
           ${zones().map(z => html`<option value="${z}" ${z === q.tz ? 'selected' : ''}>${z.replace(/_/g, ' ')}</option>`)}
         </select>
       </div>
@@ -100,6 +107,19 @@ export function renderSettings() {
       </div>
     </div>
     <div class="card">
+      <h2 class="card-title">Sharing <span class="hint">the two of you, one world</span></h2>
+      ${syncEnabled() ? html`
+        <div class="sync-state"><span class="sync-dot ${syncReady() ? 'on' : ''}"></span>
+          ${syncReady() ? 'connected — everything you write reaches them in about a second' : 'connecting…'}
+        </div>
+        <p class="danger-note" style="margin-top:10px">Notes, letters, questions, moods, hugs and your location travel both ways. Photos stay on the device that added them for now.</p>
+        <div class="settings-actions">
+          <button class="btn" id="btn-notify">${notificationsAllowed() ? '🔔 notifications on' : '🔔 turn on notifications'}</button>
+        </div>` : html`
+        <p class="danger-note">Right now this app lives only on this device — nothing you write reaches ${p[p.activePartner === 'a' ? 'b' : 'a'].name || 'your partner'} automatically. Turning on sharing takes about ten minutes and stays free; the steps are in <strong>docs/SETUP-SYNC.md</strong> in the app folder.</p>
+        <p class="danger-note">Until then, use the backup file below to hand your world over.</p>`}
+    </div>
+    <div class="card">
       <h2 class="card-title">Start fresh <span class="hint">handing this to someone new?</span></h2>
       <p class="danger-note">Erases everything on this device — notes, letters, photos, both profiles — and runs the setup again from scratch. Export a backup first if you want to keep any of it.</p>
       <div class="settings-actions"><button class="btn-ghost" id="btn-reset">🧹 Erase and set up again</button></div>
@@ -114,6 +134,11 @@ export function renderSettings() {
     applyAccent(prof.accent);
     el.querySelectorAll('[data-accent]').forEach(x => x.classList.toggle('selected', x === b));
   }));
+
+  el.querySelector('#btn-notify')?.addEventListener('click', async () => {
+    await askForNotifications();
+    renderSettings();
+  });
 
   el.querySelector('#btn-reset').addEventListener('click', async () => {
     if (!confirm('Erase everything on this device and start the setup again?\n\nNotes, letters, photos and both profiles will be gone.')) return;
@@ -144,7 +169,11 @@ export function renderSettings() {
     el.querySelectorAll('[data-f]').forEach(inp => {
       const path = inp.dataset.f.split('.');
       let v = inp.value;
+      // "— not set yet —" means leave it alone; never turn an honest blank into a
+      // guessed time zone just because someone saved an unrelated field.
+      if (path[1] === 'tz' && v === '') return;
       if (path[0] === 'nextVisit' && !v) v = null;
+      if (path[0] === 'startDate' && !v) return;
       if (path.length === 1) prof[path[0]] = v;
       else prof[path[0]][path[1]] = v;
     });

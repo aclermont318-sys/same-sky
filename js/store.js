@@ -27,6 +27,12 @@ export function defaultProfile() {
   };
 }
 
+// Anything that wants to mirror writes elsewhere (the sync backend) registers here.
+// Writes that arrived FROM the backend pass { fromRemote: true } so they are not
+// echoed straight back out again.
+let writeHook = null;
+export function onWrite(fn) { writeHook = fn; }
+
 export const store = {
   get(key, fallback) {
     try {
@@ -34,8 +40,11 @@ export const store = {
       return raw === null ? fallback : JSON.parse(raw);
     } catch { return fallback; }
   },
-  set(key, value) {
+  set(key, value, { fromRemote = false } = {}) {
     localStorage.setItem(PREFIX + key, JSON.stringify(value));
+    if (writeHook && !fromRemote) {
+      try { writeHook(key, value); } catch { /* sync is best-effort, never block a save */ }
+    }
   },
 
   async exportAll() {

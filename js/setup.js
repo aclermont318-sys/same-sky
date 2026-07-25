@@ -184,7 +184,9 @@ function personStep({ slot, index, title, hint, onNext, onBack }) {
     // Only this device's owner can safely borrow the device time zone. Guessing the
     // other person's would show two identical clocks, which is the one thing this
     // app must never get wrong.
-    who.tz = slot === 'a' ? (who.tz || deviceTimeZone()) : '';
+    // Reset outright: a zone left over from a city they just abandoned would tick
+    // in the wrong place forever. (No `||` here — that kept the stale value.)
+    who.tz = slot === 'a' ? deviceTimeZone() : '';
     onNext();
   });
   root.querySelector('#back')?.addEventListener('click', onBack);

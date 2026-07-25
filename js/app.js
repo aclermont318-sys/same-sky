@@ -8,6 +8,9 @@ import { renderNotes } from './notes.js';
 import { renderUs } from './us.js';
 import { renderSettings } from './settings.js';
 import { runSetup, askWhoIsHere, applyAccent } from './setup.js';
+import { initAutoLocation } from './location.js';
+import { initSync, syncEnabled, onRemoteChange } from './sync.js';
+import { initNotifications, clearBadge } from './notify.js';
 import { store } from './store.js';
 
 const RENDERERS = {
@@ -24,6 +27,7 @@ let current = 'home';
 export function showView(name) {
   if (!RENDERERS[name]) return;
   if (name !== 'map') teardownMap();
+  clearBadge(name);
   current = name;
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${name}`));
   document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('active', b.dataset.nav === name));
@@ -109,6 +113,18 @@ function boot() {
   document.querySelectorAll('[data-nav]').forEach(b =>
     b.addEventListener('click', () => showView(b.dataset.nav)));
   watchOtherWindows();
+  initAutoLocation();
+
+  if (syncEnabled()) {
+    initNotifications();
+    // Redraw whatever is on screen when the other device sends something,
+    // unless a sentence is mid-flight in an input.
+    onRemoteChange(() => {
+      const typing = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+      if (!typing) rerender();
+    });
+    initSync();
+  }
 
   if (!p?.setupComplete) {
     runSetup(() => showView('home'));       // brand-new install: ask for everything

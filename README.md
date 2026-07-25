@@ -20,9 +20,30 @@ No accounts. No server. No one else's cloud. Your data stays on your devices.
 | 💞 **Us** | stats, auto milestones (100 days, 1 year…), your own milestones, shared bucket list, daily question with both answers |
 | ⚙️ **Settings** | names, emoji, cities (with 1-click geocoding), time zones, start date, next visit, backup export/import |
 
-## Run it
+## Install on this laptop (already done)
 
-Any static server works. Easiest:
+```
+powershell -ExecutionPolicy Bypass -File tools\install.ps1
+```
+
+That creates a **Same Sky** icon on the Desktop and in the Start Menu. Double-click it and
+the app opens in its own window — no terminal, no browser tabs or address bar. Behind the
+scenes the shortcut runs `tools/samesky_launch.pyw`, which starts a tiny local server
+(`tools/samesky_server.pyw`) if it isn't already running, then opens the app.
+
+- The server listens on **loopback only** (`localhost:4600`) — nothing is reachable from
+  the network, and Windows Firewall never asks for permission.
+- The port is **pinned to 4600 on purpose**: the browser keys your notes, photos and
+  settings to that exact address, so a shifting port would look like everything vanished.
+  If another program is already on 4600, Same Sky says so instead of opening an empty copy.
+- Closing the window leaves the little server running until you log off or restart. It
+  costs a few MB; the next launch is instant.
+- To remove the shortcuts: `powershell -ExecutionPolicy Bypass -File tools\install.ps1 -Uninstall`
+- Right-click the taskbar icon while it's open → **Pin to taskbar** if you want it there.
+
+## Run it anywhere else
+
+Any static server works:
 
 ```
 cd same-sky

@@ -3,7 +3,7 @@
 import { store } from './store.js';
 import { getProfile } from './settings.js';
 import { toast, relTime, showView } from './app.js';
-import { autoLocationOn, setAutoLocation } from './location.js';
+import { autoLocationOn, setAutoLocation, applyManualPosition } from './location.js';
 import { html, render, escapeHTML } from './dom.js';
 
 let map = null;
@@ -142,11 +142,8 @@ export function renderMap() {
     btn.textContent = '⏳ finding you…';
     navigator.geolocation.getCurrentPosition(
       pos => {
-        const prof = getProfile();
-        prof[me].lat = pos.coords.latitude;
-        prof[me].lng = pos.coords.longitude;
-        prof[me].lastLocAt = Date.now();
-        store.set('profile', prof);
+        // Same path as the automatic updates, so the time zone follows too.
+        applyManualPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         toast('Location updated — your heart moved on the map 💘');
         renderMap();
       },

@@ -5,13 +5,15 @@
 // distance, or once every few minutes, so storage (and later, sync) stays quiet.
 
 import { store } from './store.js';
-import { toast } from './app.js';
+import { toast, rerender } from './app.js';
 import { refreshMapPositions } from './map.js';
 
-const MIN_METRES = 120;        // ignore GPS jitter while sitting still
-const MIN_GAP_MS = 3 * 60e3;   // ...but do refresh the timestamp now and then
+const MIN_METRES = 120;          // ignore GPS jitter while sitting still
+const MIN_GAP_MS = 3 * 60e3;     // ...but do refresh the timestamp now and then
+const TZ_RECHECK_METRES = 75000; // only look up a time zone after a real journey
 
 let watchId = null;
+let lastTzCheck = null;          // { lat, lng } of the last successful lookup
 
 export function autoLocationOn() {
   return store.get('autoLocation', false);
@@ -24,7 +26,46 @@ function metresBetween(a, b) {
   return 2 * R * Math.asin(Math.sqrt(s));
 }
 
-function savePosition(pos) {
+/** Which IANA zone is at these coordinates? Open-Meteo answers this for free with
+ *  `timezone=auto`; the device's own zone is the fallback when we're offline. */
+async function zoneAt(lat, lng) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m&timezone=auto`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('timezone lookup failed');
+  const json = await res.json();
+  if (!json.timezone) throw new Error('no timezone in response');
+  return json.timezone;
+}
+
+/** Follow the person: if they've genuinely travelled, move their clock with them. */
+async function maybeUpdateZone(me, coords) {
+  const prof0 = store.get('profile', null);
+  if (!prof0) return;
+  const knownZone = prof0[me]?.tz;
+  const farEnough = !lastTzCheck || metresBetween(lastTzCheck, coords) >= TZ_RECHECK_METRES;
+  if (knownZone && !farEnough) return;
+
+  let zone;
+  try {
+    zone = await zoneAt(coords.lat, coords.lng);
+  } catch {
+    return;   // offline: keep the zone we have rather than guessing a wrong one
+  }
+  lastTzCheck = { ...coords };
+
+  const prof = store.get('profile', null);   // re-read: the await gave others a turn
+  if (!prof || prof[me]?.tz === zone) return;
+  const before = prof[me].tz;
+  prof[me].tz = zone;
+  store.set('profile', prof);
+  if (before) toast(`Your clock moved with you — ${zone.replace(/_/g, ' ')} 🌍`);
+
+  const homeOpen = document.getElementById('view-home')?.classList.contains('active');
+  const typing = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+  if (homeOpen && !typing) rerender();
+}
+
+function savePosition(pos, { auto = true } = {}) {
   const prof = store.get('profile', null);
   if (!prof) return;
   const me = prof.activePartner;
@@ -32,15 +73,19 @@ function savePosition(pos) {
   const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
   const prev = prof[me];
 
-  const moved = prev.lat == null || metresBetween(prev, next) >= MIN_METRES;
-  const stale = !prev.lastLocAt || Date.now() - prev.lastLocAt >= MIN_GAP_MS;
-  if (!moved && !stale) return;
+  // A deliberate tap always counts; only the background watcher is throttled.
+  if (auto) {
+    const moved = prev.lat == null || metresBetween(prev, next) >= MIN_METRES;
+    const stale = !prev.lastLocAt || Date.now() - prev.lastLocAt >= MIN_GAP_MS;
+    if (!moved && !stale) return;
+  }
 
   prof[me].lat = next.lat;
   prof[me].lng = next.lng;
   prof[me].lastLocAt = Date.now();
-  prof[me].auto = true;
+  prof[me].auto = auto;
   store.set('profile', prof);
+  maybeUpdateZone(me, next);
 
   // Nudge the pins in place if the map is on screen. Never a full re-render: that
   // would rebuild the map and re-zoom it while someone is looking at it.
@@ -83,6 +128,12 @@ export function initAutoLocation() {
     if (document.visibilityState === 'visible') startAutoLocation();
     else stopAutoLocation();   // no point watching a hidden tab
   });
+}
+
+/** The manual "update my location" button goes through here too, so a one-off
+ *  update also brings the clock along. */
+export function applyManualPosition(coords) {
+  savePosition({ coords: { latitude: coords.lat, longitude: coords.lng } }, { auto: false });
 }
 
 /** Settings/Map toggle. Returns the new state. */

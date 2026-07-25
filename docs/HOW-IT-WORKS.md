@@ -62,11 +62,32 @@ knows a note is *from you* and a mood is *yours*.
 
 ---
 
+## The app lives here
+
+**https://aclermont318-sys.github.io/same-sky/**
+
+Open it on a phone and use **Share → Add to Home Screen** — it installs with the heart
+icon and opens without browser bars.
+
+## Joining the family
+
+The first person sets up their own character (name, avatar, city), the story (the date
+you count from, your next visit) and the colour. At the end the app hands them an
+**invite link**.
+
+The second person opens that link and sees *"… already set up their side"* — they pick
+their own avatar, their own city, and they're in. Everything the first person had is
+already there. The link is also in **Settings → Sharing** if it needs sending again.
+
+The invite link is the key to your world: anyone who opens it is in the family. Send it
+privately and don't post it anywhere.
+
 ## The important part: how the two devices talk
 
-There are two possible worlds, and you choose which one you're in.
+> **Both of these are live for you two now** — sync is on, so you're in World B below.
+> World A is what the app does for anyone who runs it without a database.
 
-### World A — private and local (how it works right now)
+### World A — private and local
 
 Everything lives in the browser on your own device. Nothing is uploaded anywhere,
 nothing needs an account, and it works with no internet (except the map tiles and
@@ -93,10 +114,18 @@ any free static host such as **Netlify** to put the app online so her phone can 
 it. The step-by-step is in [SETUP-SYNC.md](SETUP-SYNC.md) — including the exact SQL to
 paste and where the keys live.
 
-Currently synced: notes, sealed letters, questions and answers, moods, hugs/kisses/
-cuddles, bucket list, milestones, names, cities, dates, and live location.
-Not yet synced: **photos** (they're large and need a storage bucket — a small
-addition when you want it). They still travel by the backup file.
+Synced: notes, sealed letters, questions and answers, moods, hugs/kisses/cuddles,
+bucket list, milestones, names, cities, dates, live location — **and photos**, which
+go to a private storage bucket and download themselves onto the other phone.
+
+**Everything is encrypted before it leaves your device.** The app is hosted publicly, so
+its database key is public too — that key alone can't read a thing. Your notes are
+sealed with a key derived from the couple code (the secret inside your invite link),
+and the database row is filed under a *hash* of that code, so the code itself never
+reaches the server. Anyone reading the database sees meaningless ciphertext.
+
+The flip side, stated plainly: **if you both ever lose the couple code and every device,
+nothing can decrypt the backup.** Keep the invite link somewhere safe.
 
 Deliberately *not* shared: your accent colour, the app's name, and which partner this
 device belongs to — so you can each have it your own colour.

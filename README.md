@@ -18,7 +18,19 @@ No accounts. No server. No one else's cloud. Your data stays on your devices.
 | 📸 **Memories** | photo gallery (polaroid style), captions, favorites, lightbox — stored in your browser's IndexedDB |
 | 💌 **Notes** | pastel sticky-note wall + sealed **"Open when…"** letters that stay blurred until the right day |
 | 💞 **Us** | stats, auto milestones (100 days, 1 year…), your own milestones, shared bucket list, daily question with both answers |
-| ⚙️ **Settings** | names, emoji, cities (with 1-click geocoding), time zones, start date, next visit, backup export/import |
+| ⚙️ **Settings** | names, emoji, cities (with 1-click geocoding), time zones, start date, next visit, accent colour, backup export/import, "erase and set up again" |
+
+## First run
+
+The very first launch asks for everything and ships with no example data at all: both
+your names and avatars, both cities (searched for real, so the map pins, clocks and
+weather are right), the date you count from, an optional next visit, an accent colour
+and what you want the app called. Skipping a city is fine — the app says "no city yet"
+instead of inventing one, and you can fill it in later in Settings.
+
+Whoever runs setup is marked as the person holding that device. When your partner
+restores your backup on their phone, the app asks them who they are, so notes, moods and
+locations get filed under the right name.
 
 ## Install on this laptop (already done)
 

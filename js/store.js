@@ -2,7 +2,12 @@
 // Views never touch localStorage/indexedDB directly; a future sync backend
 // (e.g. Supabase) replaces the internals of this file only.
 
-import { uid } from './app.js';
+// Deliberately imports nothing from app.js: storage sits at the bottom of the
+// module graph. A cycle here once left `store` uninitialised at boot on a cold
+// load, which stopped the whole app from rendering.
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
 
 const PREFIX = 'samesky:';
 

@@ -58,37 +58,42 @@ export function renderNotes() {
     el.querySelectorAll('[data-swatch]').forEach(x => x.classList.toggle('selected', x === b));
   }));
 
+  // Every write re-reads from storage first: another open window may have added
+  // notes since this view rendered, and writing a stale array back would erase them.
   el.querySelector('#btn-post').addEventListener('click', () => {
     const text = el.querySelector('#note-text').value.trim();
     if (!text) { toast('Write a little something first ✍️'); return; }
-    notes.push({ id: uid(), author: me, text, color: pickedColor, pinned: false, createdAt: Date.now() });
-    store.set('notes', notes);
+    const fresh = store.get('notes', []);
+    fresh.push({ id: uid(), author: me, text, color: pickedColor, pinned: false, createdAt: Date.now() });
+    store.set('notes', fresh);
     toast('Note stuck to the wall 💕');
     renderNotes();
   });
 
   el.querySelectorAll('[data-pin]').forEach(b => b.addEventListener('click', () => {
-    const n = notes.find(x => x.id === b.dataset.pin);
-    n.pinned = !n.pinned;
-    store.set('notes', notes);
+    const fresh = store.get('notes', []);
+    const n = fresh.find(x => x.id === b.dataset.pin);
+    if (n) { n.pinned = !n.pinned; store.set('notes', fresh); }
     renderNotes();
   }));
   el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
     if (!confirm('Peel this note off forever?')) return;
-    store.set('notes', notes.filter(x => x.id !== b.dataset.del));
+    store.set('notes', store.get('notes', []).filter(x => x.id !== b.dataset.del));
     renderNotes();
   }));
 
   el.querySelector('#btn-letter').addEventListener('click', () => composeLetter(me));
 
   el.querySelectorAll('[data-openletter]').forEach(b => b.addEventListener('click', () => {
-    const L = letters.find(x => x.id === b.dataset.openletter);
+    const freshLetters = store.get('letters', []);
+    const L = freshLetters.find(x => x.id === b.dataset.openletter);
+    if (!L) { renderNotes(); return; }
     if (L.openAt && L.openAt > todayISO()) {
       toast(`Not yet! This one opens ${fmtDate(L.openAt)} 🔒`);
       return;
     }
     L.openedAt = Date.now();
-    store.set('letters', letters);
+    store.set('letters', freshLetters);
     renderNotes();
     const card = document.querySelector(`[data-letter="${L.id}"]`);
     card?.classList.add('opening');

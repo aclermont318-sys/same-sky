@@ -39,7 +39,10 @@ scenes the shortcut runs `tools/samesky_launch.pyw`, which starts a tiny local s
 - Closing the window leaves the little server running until you log off or restart. It
   costs a few MB; the next launch is instant.
 - To remove the shortcuts: `powershell -ExecutionPolicy Bypass -File tools\install.ps1 -Uninstall`
-- Right-click the taskbar icon while it's open → **Pin to taskbar** if you want it there.
+- Want it on the taskbar? Pin the **Start Menu entry** (Start → right-click *Same Sky* →
+  Pin to taskbar), or drag the Desktop shortcut onto the taskbar. Don't pin the app
+  window while it's open — that pin would launch the browser without starting the
+  server, so after a restart it would just say the page can't be reached.
 
 ## Run it anywhere else
 

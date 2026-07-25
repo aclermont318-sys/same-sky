@@ -5,6 +5,11 @@
 #
 # The address is always http://localhost:4600 — the app's notes, photos and settings
 # live in browser storage keyed by that exact origin, so it must never drift.
+#
+# The browser profile is pinned for the same reason: browser storage is separate per
+# profile, so opening the app in a different profile than usual would show an empty
+# app with every note and photo apparently gone. PROFILE below is the profile that
+# holds the data; change it only if you deliberately move the app to another one.
 
 import ctypes
 import os
@@ -19,6 +24,7 @@ APP_DIR = os.path.dirname(HERE)
 SERVER = os.path.join(HERE, "samesky_server.pyw")
 PORT = 4600
 HOME_URL = f"http://localhost:{PORT}/"
+PROFILE = "Default"
 
 DETACHED = 0x00000008 | 0x00000200 | 0x08000000  # DETACHED | NEW_GROUP | NO_WINDOW
 
@@ -83,7 +89,12 @@ def open_app(url):
         if browser and os.path.exists(browser):
             try:
                 subprocess.Popen(
-                    [browser, f"--app={url}", "--window-size=1180,880"],
+                    [
+                        browser,
+                        f"--profile-directory={PROFILE}",  # must come before --app
+                        f"--app={url}",
+                        "--window-size=1180,880",
+                    ],
                     creationflags=DETACHED,
                     close_fds=True,
                 )

@@ -82,11 +82,24 @@ export function rotFor(id) {
   return ((h % 5) - 2) * 0.9; // -1.8 … 1.8 deg
 }
 
+// If a second window of the app changes something, refresh this one so it never
+// shows (or writes back) a stale picture. Skipped while typing, so a note in
+// progress is never yanked out from under the cursor.
+function watchOtherWindows() {
+  window.addEventListener('storage', e => {
+    if (!e.key || !e.key.startsWith('samesky:')) return;
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    rerender();
+  });
+}
+
 function boot() {
   const p = store.get('profile', null);
   document.querySelector('.wordmark-title').textContent = p?.title || 'Same Sky';
   document.querySelectorAll('[data-nav]').forEach(b =>
     b.addEventListener('click', () => showView(b.dataset.nav)));
+  watchOtherWindows();
   maybeFirstRun(() => showView('home'));
   showView('home');
 }

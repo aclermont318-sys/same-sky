@@ -1,4 +1,6 @@
-# Same Sky — installs desktop + Start Menu shortcuts for this laptop.
+# Same Sky - installs desktop + Start Menu shortcuts for this laptop.
+# ASCII only on purpose: Windows PowerShell 5.1 reads BOM-less .ps1 files as CP1252,
+# which would turn any em dash here into mojibake inside the shortcut's tooltip.
 # Run:  powershell -ExecutionPolicy Bypass -File tools\install.ps1
 # Undo: powershell -ExecutionPolicy Bypass -File tools\install.ps1 -Uninstall
 
@@ -30,7 +32,7 @@ if ($cmd) {
 $cmdw = Get-Command pythonw -ErrorAction SilentlyContinue
 if ($cmdw) { $cand += $cmdw.Source }
 foreach ($c in $cand) { if ($c -and (Test-Path $c)) { $pyw = $c; break } }
-if (-not $pyw) { throw 'Could not find pythonw.exe — install Python 3 and re-run.' }
+if (-not $pyw) { throw 'Could not find pythonw.exe - install Python 3 and re-run.' }
 
 foreach ($p in @($launcher, $icon)) { if (-not (Test-Path $p)) { throw "Missing required file: $p" } }
 
@@ -41,7 +43,7 @@ foreach ($t in $targets) {
     $sc.Arguments        = '"' + $launcher + '"'
     $sc.WorkingDirectory = $appDir
     $sc.IconLocation     = "$icon,0"
-    $sc.Description      = 'Same Sky — two hearts, one sky'
+    $sc.Description      = 'Same Sky - two hearts, one sky'
     $sc.WindowStyle      = 7   # minimized: the launcher is windowless anyway
     $sc.Save()
     Write-Output "created $t"

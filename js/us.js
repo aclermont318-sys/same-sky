@@ -161,36 +161,40 @@ export function renderUs() {
     renderUs();
   });
 
+  // As in notes.js: re-read before every write so a second open window can't be
+  // clobbered by this view's older in-memory copy.
   el.querySelector('#mile-add').addEventListener('click', () => {
     const label = el.querySelector('#mile-label').value.trim();
     const date = el.querySelector('#mile-date').value;
     if (!label || !date) { toast('Milestone needs a name and a date ⭐'); return; }
-    custom.push({ id: uid(), label, date });
-    store.set('milestonesCustom', custom);
+    const fresh = store.get('milestonesCustom', []);
+    fresh.push({ id: uid(), label, date });
+    store.set('milestonesCustom', fresh);
     toast('Milestone added ⭐');
     renderUs();
   });
   el.querySelectorAll('[data-delmile]').forEach(b => b.addEventListener('click', () => {
-    store.set('milestonesCustom', custom.filter(m => m.id !== b.dataset.delmile));
+    store.set('milestonesCustom', store.get('milestonesCustom', []).filter(m => m.id !== b.dataset.delmile));
     renderUs();
   }));
 
   el.querySelector('#bucket-add-btn').addEventListener('click', () => {
     const text = el.querySelector('#bucket-text').value.trim();
     if (!text) { toast('Dream a little first 💭'); return; }
-    bucket.push({ id: uid(), text, done: false, createdAt: Date.now() });
-    store.set('bucket', bucket);
+    const fresh = store.get('bucket', []);
+    fresh.push({ id: uid(), text, done: false, createdAt: Date.now() });
+    store.set('bucket', fresh);
     renderUs();
   });
   el.querySelectorAll('[data-check]').forEach(c => c.addEventListener('change', () => {
-    const b = bucket.find(x => x.id === c.dataset.check);
-    b.done = c.checked;
-    store.set('bucket', bucket);
+    const fresh = store.get('bucket', []);
+    const b = fresh.find(x => x.id === c.dataset.check);
+    if (b) { b.done = c.checked; store.set('bucket', fresh); }
     if (c.checked) toast('One dream down 🎉');
     renderUs();
   }));
   el.querySelectorAll('[data-delbucket]').forEach(b => b.addEventListener('click', () => {
-    store.set('bucket', bucket.filter(x => x.id !== b.dataset.delbucket));
+    store.set('bucket', store.get('bucket', []).filter(x => x.id !== b.dataset.delbucket));
     renderUs();
   }));
 }

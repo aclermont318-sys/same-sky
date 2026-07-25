@@ -17,6 +17,8 @@ import socket
 import socketserver
 import sys
 import threading
+import urllib.error
+import urllib.request
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PORT = 4600
@@ -48,11 +50,23 @@ def alert(msg):
     ctypes.windll.user32.MessageBoxW(None, msg, "Same Sky", 0x10)
 
 
+def same_sky_already_there():
+    """Is the port held by another copy of us? (Two quick double-clicks race here.)"""
+    try:
+        url = f"http://127.0.0.1:{PORT}/manifest.webmanifest"
+        with urllib.request.urlopen(url, timeout=1.5) as resp:
+            return "Same Sky" in resp.read(400).decode("utf-8", "replace")
+    except (urllib.error.URLError, OSError, ValueError):
+        return False
+
+
 def main():
     os.chdir(APP_DIR)
     try:
         v4 = V4Server(("127.0.0.1", PORT), Handler)
     except OSError:
+        if same_sky_already_there():
+            return 0  # we simply lost a race with another launch; nothing is wrong
         alert(
             f"Same Sky needs port {PORT}, but another program is already using it.\n\n"
             "Close that program (or restart the laptop) and open Same Sky again.\n\n"
